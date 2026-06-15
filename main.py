@@ -99,9 +99,43 @@ th    { white-space:nowrap; }
 .badge-warn     { background:#fef3c7; color:#92400e; }
 .badge-info     { background:#dbeafe; color:#1e40af; }
 
-/* Action buttons */
-.action-btns { display:flex; gap:.4rem; white-space:nowrap; }
-.action-btns button, .action-btns a { padding:.25rem .6rem; font-size:.8rem; margin:0; }
+/* Action dropdown menu (manage table) */
+.action-menu { position:relative; display:inline-block; }
+.action-menu details { margin:0; }
+.action-menu details summary {
+  font-weight:500; font-size:.82rem; margin:0;
+  padding:.3rem .7rem; list-style:none; cursor:pointer;
+  border:1px solid var(--pico-muted-border-color);
+  border-radius:var(--pico-border-radius);
+  background:var(--pico-card-background-color);
+  color:var(--pico-color); user-select:none; white-space:nowrap; }
+.action-menu details summary::-webkit-details-marker { display:none; }
+.action-menu details[open] summary {
+  margin-bottom:0;
+  border-radius:var(--pico-border-radius) var(--pico-border-radius) 0 0; }
+.action-menu .drop-list {
+  position:absolute; right:0; z-index:200; min-width:155px;
+  background:var(--pico-card-background-color);
+  border:1px solid var(--pico-muted-border-color); border-top:none;
+  border-radius:0 0 var(--pico-border-radius) var(--pico-border-radius);
+  box-shadow:0 6px 18px rgba(0,0,0,.13); overflow:hidden; }
+.action-menu .drop-list a,
+.action-menu .drop-list button {
+  display:block; width:100%; box-sizing:border-box;
+  padding:.48rem .95rem; font-size:.84rem;
+  text-decoration:none; color:var(--pico-color);
+  background:none; border:none; text-align:left; cursor:pointer; margin:0; }
+.action-menu .drop-list a:hover,
+.action-menu .drop-list button:hover { background:var(--pico-muted-border-color); }
+.action-menu .drop-danger { border-top:1px solid var(--pico-muted-border-color); }
+.action-menu .drop-danger button { color:#dc2626; }
+.action-menu .drop-danger button:hover { background:#fee2e2; color:#b91c1c; }
+
+/* Detail page action buttons */
+.detail-actions { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.9rem; }
+.detail-actions a[role=button], .detail-actions button { margin:0; padding:.45rem 1.1rem; font-size:.88rem; }
+.btn-danger { background:#dc2626 !important; border-color:#dc2626 !important; color:#fff !important; }
+.btn-danger:hover { background:#b91c1c !important; border-color:#b91c1c !important; }
 
 /* Layout */
 .page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
@@ -188,6 +222,28 @@ def action_btn(label: str, href: str = None, cls: str = "secondary outline",
             btn.attrs["hx-confirm"] = hx_confirm
         return btn
     return btn
+
+
+def action_menu(sub_id: int, name: str) -> Div:
+    """Dropdown action menu for the manage table."""
+    return Div(
+        Details(
+            Summary("Actions"),
+            Div(
+                A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit"),
+                A("💰 Price Change", href=f"/subscriptions/{sub_id}/price-change"),
+                Div(
+                    Button("🗑️ Delete",
+                           hx_post=f"/subscriptions/{sub_id}/delete",
+                           hx_confirm=f"Delete '{name}'? (soft-delete)",
+                           hx_target="body", hx_push_url="true"),
+                    cls="drop-danger",
+                ),
+                cls="drop-list",
+            ),
+        ),
+        cls="action-menu",
+    )
 
 
 def section_card(*children, heading: str = None) -> Div:
@@ -565,14 +621,7 @@ def get(session, q: str = "", status: str = "all", category: str = ""):
             Td(s["end_date"] or "—"),
             Td(status_badge(s["is_active"])),
             Td(truncate(s["notes"])),
-            Td(Div(
-                action_btn("✏️ Edit", href=f"/subscriptions/{s['id']}/edit"),
-                action_btn("💰 Price", href=f"/subscriptions/{s['id']}/price-change"),
-                action_btn("🗑️ Delete",
-                           hx_post=f"/subscriptions/{s['id']}/delete",
-                           hx_confirm=f"Delete '{s['name']}'? (soft-delete)"),
-                cls="action-btns",
-            )),
+            Td(action_menu(s["id"], s["name"])),
         ))
 
     table = (
@@ -580,7 +629,7 @@ def get(session, q: str = "", status: str = "all", category: str = ""):
             Thead(Tr(Th("Name"), Th("Category"), Th("Amount"), Th("Frequency"),
                      Th("Start"), Th("End"), Th("Status"), Th("Notes"), Th("Actions"))),
             Tbody(*rows),
-        ) if rows else P("No subscriptions found. ", A("Add one →", href="/subscriptions/new"))
+        ) if rows else P("No subscriptions found. ", A("Add one →", href="/manage/new"))
     )
 
     filter_bar = Form(
@@ -600,11 +649,11 @@ def get(session, q: str = "", status: str = "all", category: str = ""):
             )),
             Button("Filter", type="submit",
                    style="margin-bottom:0; padding:.4rem 1rem"),
-            A(Button("＋ Add", style="margin-bottom:0; padding:.4rem 1rem"),
-              href="/subscriptions/new"),
-            A(Button("⬇ CSV", cls="secondary outline",
+            A(Button("＋ Add", type="button", style="margin-bottom:0; padding:.4rem 1rem"),
+              href="/manage/new"),
+            A(Button("⬇ CSV", type="button", cls="secondary outline",
                      style="margin-bottom:0; padding:.4rem 1rem"),
-              href="/subscriptions/export"),
+              href="/manage/export"),
             cls="filters",
         ),
         method="get", action="/manage",
@@ -671,7 +720,7 @@ def subscription_form(action_url: str, sub: dict = None, btn_label: str = "Save"
 # New subscription
 # ══════════════════════════════════════════════════════════════════════════════
 
-@rt("/subscriptions/new")
+@rt("/manage/new")
 def get(session):
     redir = guard(session)
     if redir: return redir
@@ -679,12 +728,12 @@ def get(session):
     db = get_db()
     return page_title("New Subscription"), nav_bar(user["username"], "manage"), Main(
         Div(H2("Add Subscription"), A("← Manage", href="/manage"), cls="page-header"),
-        subscription_form("/subscriptions/new", btn_label="Create Subscription",
+        subscription_form("/manage/new", btn_label="Create Subscription",
                           categories=get_categories(db, user["id"])),
     )
 
 
-@rt("/subscriptions/new")
+@rt("/manage/new")
 async def post(session, name: str, amount: float, start_date: str,
                end_date: str = "", repeat_unit: str = "monthly",
                repeat_skip: int = 1, notes: str = "", is_active: str = "",
@@ -909,9 +958,16 @@ def get(session, sub_id: int):
         ),
         P(Small("Notes"), Br(), sub["notes"] or "—"),
         Div(
-            action_btn("✏️ Edit", href=f"/subscriptions/{sub_id}/edit"),
-            action_btn("💰 Add Price Change", href=f"/subscriptions/{sub_id}/price-change"),
-            cls="action-btns", style="margin-top:.5rem",
+            A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit",
+              role="button", cls="secondary outline"),
+            A("💰 Price Change", href=f"/subscriptions/{sub_id}/price-change",
+              role="button", cls="secondary outline"),
+            Button("🗑️ Delete",
+                   hx_post=f"/subscriptions/{sub_id}/delete",
+                   hx_confirm=f"Delete '{sub['name']}'? (soft-delete)",
+                   hx_target="body", hx_push_url="true",
+                   cls="btn-danger"),
+            cls="detail-actions",
         ),
     )
 
@@ -1028,7 +1084,7 @@ async def post(session, sub_id: int):
 # CSV export
 # ══════════════════════════════════════════════════════════════════════════════
 
-@rt("/subscriptions/export")
+@rt("/manage/export")
 def get(session):
     redir = guard(session)
     if redir: return redir
