@@ -4,9 +4,11 @@ auth_routes.py — First-run setup, login, logout.
 
 from fasthtml.common import *
 
-from app.db import init_db, has_any_users, get_user_by_id, get_db
+from app.db import (
+    init_db, has_any_users, get_user_by_id, get_db,
+    create_team, add_member, write_audit_log,
+)
 from app.auth import authenticate, create_user
-from app.db import write_audit_log
 from app.components import page_title, alert
 
 ar = APIRouter()
@@ -51,10 +53,15 @@ async def post(session, username: str, password: str, password2: str):
     if len(password) < 6:
         return RedirectResponse("/setup?error=Password+must+be+at+least+6+characters", status_code=303)
     uname = username.strip()
-    uid = create_user(uname, password)
+    # First user is the Super Admin; give them a default team they administer.
+    uid = create_user(uname, password, global_role="super_admin")
+    team_id = create_team(db, "Default", "Default team", created_by=uid)
+    add_member(db, team_id, uid, "team_admin", created_by=uid)
     write_audit_log(uid, uname, "CREATE", "user", uid, uname,
-                    f"Admin account '{uname}' created during setup")
+                    f"Super admin '{uname}' created during setup",
+                    actor_global_role="super_admin", team_id=team_id, team_name="Default")
     session["user_id"] = uid
+    session["active_team_id"] = team_id
     return RedirectResponse("/dashboard", status_code=303)
 
 

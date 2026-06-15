@@ -12,9 +12,9 @@ from starlette.datastructures import UploadFile
 
 from app import timeutil
 from app.db import (
-    get_db, get_all_subscriptions, get_categories, get_active_price, write_audit_log,
+    get_db, get_all_subscriptions, get_categories, get_active_price, audit,
 )
-from app.session import guard, current_user
+from app.authz import require, writable_team
 from app.cost_utils import FREQUENCIES, BASE_UNITS, frequency_label, get_annual_cost
 from app.components import (
     page_title, nav_bar, section_card, alert, badge, status_badge, action_menu,
@@ -27,14 +27,13 @@ ar = APIRouter()
 # ── Manage list ──────────────────────────────────────────────────────────────
 
 @ar("/manage")
-def get(session, q: str = "", status: str = "all", category: str = ""):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session, q: str = "", status: str = "all", category: str = ""):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.view")): return r
     db = get_db()
 
-    all_categories = get_categories(db, user["id"])
-    subs = get_all_subscriptions(db, user["id"],
+    all_categories = get_categories(db, ctx)
+    subs = get_all_subscriptions(db, ctx,
                                  filter_active=status if status != "all" else None,
                                  search=q or None,
                                  category=category or None)
@@ -93,7 +92,7 @@ def get(session, q: str = "", status: str = "all", category: str = ""):
         method="get", action="/manage",
     )
 
-    return page_title("Manage"), nav_bar(user["username"], "manage"), Main(
+    return page_title("Manage"), nav_bar(ctx, "manage"), Main(
         Div(H2("Manage Subscriptions"), cls="page-header"),
         filter_bar,
         table,
@@ -103,12 +102,11 @@ def get(session, q: str = "", status: str = "all", category: str = ""):
 # ── CSV export ───────────────────────────────────────────────────────────────
 
 @ar("/manage/export")
-def get(session):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.view")): return r
     db = get_db()
-    subs = get_all_subscriptions(db, user["id"])
+    subs = get_all_subscriptions(db, ctx)
 
     buf = io.StringIO()
     w = csv.writer(buf)
@@ -255,7 +253,7 @@ def _parse_import_csv(text: str) -> tuple:
     return valid, errors
 
 
-def import_page(user, *, result=None):
+def import_page(ctx, *, result=None):
     """Render the import form, optionally with a result summary panel."""
     result_panel = ""
     if result is not None:
@@ -274,7 +272,7 @@ def import_page(user, *, result=None):
             ))
         result_panel = Div(*blocks)
 
-    return page_title("Import"), nav_bar(user["username"], "manage"), Main(
+    return page_title("Import"), nav_bar(ctx, "manage"), Main(
         Div(H2("Import Subscriptions"), A("← Manage", href="/manage"), cls="page-header"),
         result_panel,
         section_card(
@@ -316,18 +314,19 @@ def import_page(user, *, result=None):
 
 
 @ar("/manage/import")
-def get(session):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
-    return import_page(user)
+def get(req, session):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.create")): return r
+    return import_page(ctx)
 
 
 @ar("/manage/import")
-async def post(session, csv_text: str = "", file: UploadFile = None):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+async def post(req, session, csv_text: str = "", file: UploadFile = None):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.create")): return r
+    if not writable_team(ctx):
+        return RedirectResponse("/teams?msg=Switch+to+a+specific+team+first&msg_kind=warning",
+                                status_code=303)
     db = get_db()
 
     # Prefer an uploaded file; fall back to pasted text.
@@ -343,7 +342,8 @@ async def post(session, csv_text: str = "", file: UploadFile = None):
     for r in rows:
         now = timeutil.now_iso()
         sub_id = db["subscriptions"].insert({
-            "user_id": user["id"], "name": r["name"], "amount": r["amount"],
+            "team_id": ctx.active_team_id, "created_by": ctx.user["id"],
+            "name": r["name"], "amount": r["amount"],
             "currency": "EUR", "category": r["category"],
             "start_date": r["start_date"], "end_date": r["end_date"],
             "notes": r["notes"], "frequency": r["frequency"],
@@ -352,15 +352,14 @@ async def post(session, csv_text: str = "", file: UploadFile = None):
         }).last_pk
         db["subscription_price_history"].insert({
             "subscription_id": sub_id, "amount": r["amount"],
-            "valid_from": r["start_date"], "created_at": now, "created_by": user["id"],
+            "valid_from": r["start_date"], "created_at": now, "created_by": ctx.user["id"],
         })
-        write_audit_log(user["id"], user["username"], "CREATE", "subscription",
-                        sub_id, r["name"],
-                        f"Imported '{r['name']}' €{r['amount']}/{r['frequency']}",
-                        new_values={"name": r["name"], "amount": r["amount"],
-                                    "category": r["category"], "frequency": r["frequency"],
-                                    "interval": r["interval"], "base_unit": r["base_unit"],
-                                    "start_date": r["start_date"]})
+        audit(ctx, "CREATE", "subscription", sub_id, r["name"],
+              f"Imported '{r['name']}' €{r['amount']}/{r['frequency']}",
+              new_values={"name": r["name"], "amount": r["amount"],
+                          "category": r["category"], "frequency": r["frequency"],
+                          "interval": r["interval"], "base_unit": r["base_unit"],
+                          "start_date": r["start_date"]})
         imported += 1
 
-    return import_page(user, result=(imported, errors))
+    return import_page(ctx, result=(imported, errors))

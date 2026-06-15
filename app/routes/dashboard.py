@@ -6,7 +6,7 @@ from fasthtml.common import *
 
 from app import timeutil
 from app.db import get_db, get_all_subscriptions, get_price_history
-from app.session import guard, current_user
+from app.authz import require
 from app.cost_utils import year_cost_with_price_history, monthly_costs_for_year
 from app.components import (
     page_title, nav_bar, section_card, fmt_eur, category_label,
@@ -16,12 +16,12 @@ from app.components import (
 ar = APIRouter()
 
 
-def _year_analytics(db, user_id: int, year: int) -> dict:
+def _year_analytics(db, ctx, year: int) -> dict:
     """
     Spend analytics for `year`, honouring price history and each subscription's
     active window. Returns period_costs, yearly_total, per_sub, per_cat, months.
     """
-    subs = get_all_subscriptions(db, user_id)
+    subs = get_all_subscriptions(db, ctx)
     per_sub, per_cat, months, yearly_total = [], {}, [0.0] * 12, 0.0
 
     for s in subs:
@@ -54,17 +54,16 @@ def _year_analytics(db, user_id: int, year: int) -> dict:
 
 
 @ar("/dashboard")
-def get(session, year: int = None):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session, year: int = None):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.view")): return r
     db = get_db()
 
     current_year = timeutil.today().year
     year = year or current_year
     year_range = list(range(current_year - 3, current_year + 3))
 
-    data = _year_analytics(db, user["id"], year)
+    data = _year_analytics(db, ctx, year)
 
     cost_cards = Div(
         *[Div(
@@ -107,8 +106,10 @@ def get(session, year: int = None):
         cls="charts-grid",
     )
 
-    return page_title("Dashboard"), nav_bar(user["username"], "dashboard"), Main(
-        Div(H2("Dashboard"),
+    scope_label = ("All teams" if (ctx.view_all and ctx.is_super)
+                   else (ctx.active_team_name or "No team"))
+    return page_title("Dashboard"), nav_bar(ctx, "dashboard"), Main(
+        Div(H2("Dashboard ", Small(f"· {scope_label}", style="color:var(--pico-muted-color)")),
             A("Manage subscriptions →", href="/manage"),
             cls="page-header"),
         year_bar,

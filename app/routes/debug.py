@@ -1,23 +1,23 @@
 """
 debug.py — Date/time override tools for testing cost/payment calculations.
+Gated on settings.manage (super admin).
 """
 
 from fasthtml.common import *
 
 from app import timeutil
-from app.session import guard, current_user
+from app.authz import require
 from app.components import page_title, nav_bar, alert
 
 ar = APIRouter()
 
 
 @ar("/debug")
-def get(session, msg: str = ""):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session, msg: str = ""):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "settings.manage")): return r
     debug = timeutil.get_debug_date()
-    return page_title("Debug"), nav_bar(user["username"], "debug"), Main(
+    return page_title("Debug"), nav_bar(ctx, "debug"), Main(
         Div(H2("Debug Tools"), cls="page-header"),
         Div(
             H3("Date Override"),
@@ -45,16 +45,16 @@ def get(session, msg: str = ""):
 
 
 @ar("/debug/set-date")
-async def post(session, debug_date: str):
-    redir = guard(session)
-    if redir: return redir
+async def post(req, session, debug_date: str):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "settings.manage")): return r
     timeutil.set_debug_date(debug_date)
     return RedirectResponse(f"/debug?msg=Date+set+to+{debug_date}", status_code=303)
 
 
 @ar("/debug/clear-date")
-async def post(session):
-    redir = guard(session)
-    if redir: return redir
+async def post(req, session):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "settings.manage")): return r
     timeutil.set_debug_date(None)
     return RedirectResponse("/debug?msg=Date+reset+to+real+clock", status_code=303)

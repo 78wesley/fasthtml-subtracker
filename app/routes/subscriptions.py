@@ -1,5 +1,8 @@
 """
 subscriptions.py — Create / edit / price-change / detail / soft-delete a subscription.
+
+All reads go through the team-scoped get_subscription(db, ctx, ...); all writes are
+gated by a permission via require(ctx, ...) and audited with team context.
 """
 
 from datetime import timedelta
@@ -9,9 +12,9 @@ from fasthtml.common import *
 from app import timeutil
 from app.db import (
     get_db, get_subscription, get_active_price, get_price_history,
-    get_audit_for_entity, get_categories, delete_price_history_entry, write_audit_log,
+    get_audit_for_entity, get_categories, delete_price_history_entry, audit,
 )
-from app.session import guard, current_user
+from app.authz import require, writable_team
 from app.cost_utils import (
     FREQUENCIES, BASE_UNITS, frequency_label, get_period_cost, next_payment_date,
 )
@@ -38,26 +41,33 @@ def _normalise_cadence(frequency: str, interval: int, base_unit: str) -> tuple:
 # ── New subscription ─────────────────────────────────────────────────────────
 
 @ar("/manage/new")
-def get(session):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.create")): return r
+    if not writable_team(ctx):
+        return page_title("New Subscription"), nav_bar(ctx, "manage"), Main(
+            Div(H2("Add Subscription"), A("← Manage", href="/manage"), cls="page-header"),
+            alert("Switch to a specific team (not “All teams”) before adding a "
+                  "subscription.", "warning"),
+        )
     db = get_db()
-    return page_title("New Subscription"), nav_bar(user["username"], "manage"), Main(
+    return page_title("New Subscription"), nav_bar(ctx, "manage"), Main(
         Div(H2("Add Subscription"), A("← Manage", href="/manage"), cls="page-header"),
         subscription_form("/manage/new", btn_label="Create Subscription",
-                          categories=get_categories(db, user["id"])),
+                          categories=get_categories(db, ctx)),
     )
 
 
 @ar("/manage/new")
-async def post(session, name: str, amount: float, start_date: str,
+async def post(req, session, name: str, amount: float, start_date: str,
                end_date: str = "", frequency: str = "monthly",
                interval: int = 1, base_unit: str = "", notes: str = "",
                is_active: str = "", category: str = ""):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.create")): return r
+    if not writable_team(ctx):
+        return RedirectResponse("/teams?msg=Switch+to+a+specific+team+first&msg_kind=warning",
+                                status_code=303)
     db = get_db()
     now = timeutil.now_iso()
     frequency, interval_val, base_unit_val = _normalise_cadence(frequency, interval, base_unit)
@@ -65,7 +75,8 @@ async def post(session, name: str, amount: float, start_date: str,
     category_val = category.strip() or None
 
     sub_id = db["subscriptions"].insert({
-        "user_id": user["id"], "name": name, "amount": amount, "currency": "EUR",
+        "team_id": ctx.active_team_id, "created_by": ctx.user["id"],
+        "name": name, "amount": amount, "currency": "EUR",
         "category": category_val, "start_date": start_date,
         "end_date": end_date or None, "notes": notes,
         "frequency": frequency, "interval": interval_val, "base_unit": base_unit_val,
@@ -74,29 +85,28 @@ async def post(session, name: str, amount: float, start_date: str,
 
     db["subscription_price_history"].insert({
         "subscription_id": sub_id, "amount": amount, "valid_from": start_date,
-        "created_at": now, "created_by": user["id"],
+        "created_at": now, "created_by": ctx.user["id"],
     })
 
-    write_audit_log(user["id"], user["username"], "CREATE", "subscription", sub_id, name,
-                    f"Created '{name}' €{amount}/{frequency}",
-                    new_values={"name": name, "amount": amount, "category": category_val,
-                                "frequency": frequency, "interval": interval_val,
-                                "base_unit": base_unit_val, "start_date": start_date})
+    audit(ctx, "CREATE", "subscription", sub_id, name,
+          f"Created '{name}' €{amount}/{frequency}",
+          new_values={"name": name, "amount": amount, "category": category_val,
+                      "frequency": frequency, "interval": interval_val,
+                      "base_unit": base_unit_val, "start_date": start_date})
     return RedirectResponse("/manage", status_code=303)
 
 
 # ── Edit subscription ────────────────────────────────────────────────────────
 
 @ar("/subscriptions/{sub_id}/edit")
-def get(session, sub_id: int):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session, sub_id: int):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.edit")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
-    return page_title(f"Edit {sub['name']}"), nav_bar(user["username"], "manage"), Main(
+    return page_title(f"Edit {sub['name']}"), nav_bar(ctx, "manage"), Main(
         Div(H2(f"Edit: {sub['name']}"),
             A("← Back", href=f"/subscriptions/{sub_id}/detail"),
             cls="page-header"),
@@ -104,20 +114,19 @@ def get(session, sub_id: int):
               "Use 💰 Price Change to record a dated price change.", "warning"),
         subscription_form(f"/subscriptions/{sub_id}/edit", sub=sub,
                           btn_label="Update Subscription",
-                          categories=get_categories(db, user["id"])),
+                          categories=get_categories(db, ctx)),
     )
 
 
 @ar("/subscriptions/{sub_id}/edit")
-async def post(session, sub_id: int, name: str, amount: float, start_date: str,
+async def post(req, session, sub_id: int, name: str, amount: float, start_date: str,
                end_date: str = "", frequency: str = "monthly",
                interval: int = 1, base_unit: str = "", notes: str = "",
                is_active: str = "", category: str = ""):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.edit")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
 
@@ -134,27 +143,24 @@ async def post(session, sub_id: int, name: str, amount: float, start_date: str,
     changed = {k: v for k, v in new_vals.items() if str(v) != str(old.get(k, ""))}
 
     db["subscriptions"].update(sub_id, {**new_vals, "updated_at": timeutil.now_iso()})
-    write_audit_log(user["id"], user["username"], "UPDATE", "subscription", sub_id, name,
-                    f"Updated '{name}'",
-                    old_values={k: old[k] for k in changed},
-                    new_values=changed)
+    audit(ctx, "UPDATE", "subscription", sub_id, name, f"Updated '{name}'",
+          old_values={k: old[k] for k in changed}, new_values=changed)
     return RedirectResponse(f"/subscriptions/{sub_id}/detail", status_code=303)
 
 
 # ── Price change ─────────────────────────────────────────────────────────────
 
 @ar("/subscriptions/{sub_id}/price-change")
-def get(session, sub_id: int):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session, sub_id: int):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.edit")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
 
     current_price = get_active_price(db, sub_id, sub["amount"])
-    return page_title(f"Price Change – {sub['name']}"), nav_bar(user["username"], "manage"), Main(
+    return page_title(f"Price Change – {sub['name']}"), nav_bar(ctx, "manage"), Main(
         Div(H2(f"Price Change: {sub['name']}"),
             A("← Back", href=f"/subscriptions/{sub_id}/detail"),
             cls="page-header"),
@@ -175,12 +181,11 @@ def get(session, sub_id: int):
 
 
 @ar("/subscriptions/{sub_id}/price-change")
-async def post(session, sub_id: int, new_amount: float, valid_from: str, notes: str = ""):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+async def post(req, session, sub_id: int, new_amount: float, valid_from: str, notes: str = ""):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.edit")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
 
@@ -190,7 +195,7 @@ async def post(session, sub_id: int, new_amount: float, valid_from: str, notes: 
 
     db["subscription_price_history"].insert({
         "subscription_id": sub_id, "amount": new_amount,
-        "valid_from": valid_from, "created_at": now, "created_by": user["id"],
+        "valid_from": valid_from, "created_at": now, "created_by": ctx.user["id"],
     })
     db["subscriptions"].update(sub_id, {"amount": new_amount, "updated_at": now})
 
@@ -199,22 +204,20 @@ async def post(session, sub_id: int, new_amount: float, valid_from: str, notes: 
         desc += " (backdated)"
     if notes:
         desc += f". {notes}"
-    write_audit_log(user["id"], user["username"], "PRICE_CHANGE", "subscription",
-                    sub_id, sub["name"], desc,
-                    old_values={"amount": old_amount},
-                    new_values={"amount": new_amount, "valid_from": valid_from, "notes": notes})
+    audit(ctx, "PRICE_CHANGE", "subscription", sub_id, sub["name"], desc,
+          old_values={"amount": old_amount},
+          new_values={"amount": new_amount, "valid_from": valid_from, "notes": notes})
     return RedirectResponse(f"/subscriptions/{sub_id}/detail", status_code=303)
 
 
 # ── Delete a price-history entry ─────────────────────────────────────────────
 
 @ar("/subscriptions/{sub_id}/price-history/{entry_id}/delete")
-async def post(session, sub_id: int, entry_id: int):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+async def post(req, session, sub_id: int, entry_id: int):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.edit")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
 
@@ -226,27 +229,24 @@ async def post(session, sub_id: int, entry_id: int):
     entry = entries[0]
     delete_price_history_entry(db, entry_id, sub_id)
 
-    # Recalculate the current "active" amount and sync back to subscriptions.amount
     new_active = get_active_price(db, sub_id, sub["amount"])
     db["subscriptions"].update(sub_id, {"amount": new_active, "updated_at": timeutil.now_iso()})
 
-    write_audit_log(user["id"], user["username"], "DELETE", "subscription_price_history",
-                    entry_id, sub["name"],
-                    f"Deleted price history entry for '{sub['name']}': "
-                    f"{fmt_eur(entry['amount'])} (valid from {entry['valid_from']})",
-                    old_values={"amount": entry["amount"], "valid_from": entry["valid_from"]})
+    audit(ctx, "DELETE", "subscription_price_history", entry_id, sub["name"],
+          f"Deleted price history entry for '{sub['name']}': "
+          f"{fmt_eur(entry['amount'])} (valid from {entry['valid_from']})",
+          old_values={"amount": entry["amount"], "valid_from": entry["valid_from"]})
     return RedirectResponse(f"/subscriptions/{sub_id}/detail", status_code=303)
 
 
 # ── Subscription detail ──────────────────────────────────────────────────────
 
 @ar("/subscriptions/{sub_id}/detail")
-def get(session, sub_id: int):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+def get(req, session, sub_id: int):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.view")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
 
@@ -255,6 +255,22 @@ def get(session, sub_id: int):
     history = get_price_history(db, sub_id)
     audit_entries = get_audit_for_entity(db, sub_id, "subscription")
     freq_lbl = frequency_label(sub["frequency"], sub["interval"] or 1, sub.get("base_unit"))
+
+    can_edit = ctx.can("subscriptions.edit")
+    can_delete = ctx.can("subscriptions.delete")
+    actions = []
+    if can_edit:
+        actions += [
+            A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit",
+              role="button", cls="secondary outline"),
+            A("💰 Price Change", href=f"/subscriptions/{sub_id}/price-change",
+              role="button", cls="secondary outline"),
+        ]
+    if can_delete:
+        actions.append(Button("🗑️ Delete",
+                       hx_post=f"/subscriptions/{sub_id}/delete",
+                       hx_confirm=f"Delete '{sub['name']}'? (soft-delete)",
+                       hx_target="body", hx_push_url="true", cls="btn-danger"))
 
     info = section_card(
         H3(sub["name"]),
@@ -268,18 +284,7 @@ def get(session, sub_id: int):
             Div(P(Small("Currency")),   P(sub["currency"] or "EUR")),
         ),
         P(Small("Notes"), Br(), sub["notes"] or "—"),
-        Div(
-            A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit",
-              role="button", cls="secondary outline"),
-            A("💰 Price Change", href=f"/subscriptions/{sub_id}/price-change",
-              role="button", cls="secondary outline"),
-            Button("🗑️ Delete",
-                   hx_post=f"/subscriptions/{sub_id}/delete",
-                   hx_confirm=f"Delete '{sub['name']}'? (soft-delete)",
-                   hx_target="body", hx_push_url="true",
-                   cls="btn-danger"),
-            cls="detail-actions",
-        ),
+        Div(*actions, cls="detail-actions") if actions else "",
     )
 
     costs = section_card(
@@ -307,7 +312,7 @@ def get(session, sub_id: int):
                        hx_confirm=f"Delete price entry {fmt_eur(h['amount'])} from {h['valid_from']}?",
                        hx_target="body", hx_push_url="true"),
                 method="post",
-            ), cls="nowrap"),
+            ) if can_edit else "", cls="nowrap"),
         )
         for h in history
     ]
@@ -358,7 +363,7 @@ def get(session, sub_id: int):
         ) if audit_rows else P("No audit entries."),
     )
 
-    return page_title(sub["name"]), nav_bar(user["username"], "manage"), Main(
+    return page_title(sub["name"]), nav_bar(ctx, "manage"), Main(
         Div(H2(sub["name"]), A("← Manage", href="/manage"), cls="page-header"),
         info, costs, price_hist, next_payments, audit_section,
     )
@@ -367,21 +372,20 @@ def get(session, sub_id: int):
 # ── Soft-delete a subscription ───────────────────────────────────────────────
 
 @ar("/subscriptions/{sub_id}/delete")
-async def post(session, sub_id: int):
-    redir = guard(session)
-    if redir: return redir
-    user = current_user(session)
+async def post(req, session, sub_id: int):
+    ctx = req.scope["ctx"]
+    if (r := require(ctx, "subscriptions.delete")): return r
     db = get_db()
-    sub = get_subscription(db, sub_id, user["id"])
+    sub = get_subscription(db, ctx, sub_id)
     if not sub:
         return RedirectResponse("/manage", status_code=303)
 
     now = timeutil.now_iso()
     db["subscriptions"].update(sub_id, {
-        "deleted_at": now, "deleted_by": user["id"], "updated_at": now,
+        "deleted_at": now, "deleted_by": ctx.user["id"], "updated_at": now,
     })
-    write_audit_log(user["id"], user["username"], "DELETE", "subscription", sub_id,
-                    sub["name"], f"Soft-deleted '{sub['name']}'",
-                    old_values={"deleted_at": None},
-                    new_values={"deleted_at": now, "deleted_by": user["id"]})
+    audit(ctx, "DELETE", "subscription", sub_id, sub["name"],
+          f"Soft-deleted '{sub['name']}'",
+          old_values={"deleted_at": None},
+          new_values={"deleted_at": now, "deleted_by": ctx.user["id"]})
     return RedirectResponse("/manage", status_code=303)

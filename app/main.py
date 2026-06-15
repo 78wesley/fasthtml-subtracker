@@ -12,10 +12,12 @@ from app.config import SECRET_KEY
 from app.styles import CSS
 from app.db import init_db
 from app.routes import ALL_ROUTERS
+from app.session import load_ctx, SKIP
 
 app, rt = fast_app(
     secret_key=SECRET_KEY,
     hdrs=(Style(CSS),),
+    before=Beforeware(load_ctx, skip=SKIP),
 )
 
 # Register all route modules onto the single app instance.

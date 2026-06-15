@@ -16,11 +16,12 @@ def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
 
-def create_user(username: str, password: str) -> int:
+def create_user(username: str, password: str, global_role: str = "user") -> int:
     db = get_db()
     result = db["users"].insert({
         "username": username,
         "password_hash": hash_password(password),
+        "global_role": global_role,
         "created_at": timeutil.now_iso(),
     })
     return result.last_pk
