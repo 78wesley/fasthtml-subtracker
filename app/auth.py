@@ -3,8 +3,9 @@ auth.py — Password hashing, user creation, authentication.
 """
 
 import bcrypt
-from database import get_db, get_user_by_username, init_db
-import timeutil
+
+from app import timeutil
+from app.db import get_db, get_user_by_username
 
 
 def hash_password(password: str) -> str:

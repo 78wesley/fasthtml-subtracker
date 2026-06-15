@@ -11,3 +11,4 @@ wheels/
 
 .env
 subscriptions.db
+subscriptions.db.bak.*
