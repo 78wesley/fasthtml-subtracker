@@ -1,11 +1,16 @@
 """
-forms.py — Shared subscription form (new & edit).
+forms.py — Shared subscription form (new & edit), styled with shadcn utilities.
 """
 
 from fasthtml.common import *
 
 from app import timeutil
 from app.cost_utils import FREQUENCIES, BASE_UNITS, frequency_label
+from app.styles import INPUT, SELECT, TEXTAREA, LABEL, FIELD, btn
+
+
+def _field(label, control):
+    return Div(Label(label, cls=LABEL), control, cls=FIELD)
 
 
 def subscription_form(action_url: str, sub: dict = None, btn_label: str = "Save",
@@ -23,52 +28,52 @@ def subscription_form(action_url: str, sub: dict = None, btn_label: str = "Save"
         return "Custom…" if u == "custom" else frequency_label(u)
 
     return Form(
-        Grid(
-            Label("Name *", Input(name="name", value=s.get("name", ""),
-                  required=True, placeholder="e.g. Netflix")),
-            Label("Amount (€) *", Input(name="amount", type="number", step="0.01",
-                  min="0", value=s.get("amount", ""), required=True)),
+        Div(
+            _field("Name *", Input(name="name", value=s.get("name", ""),
+                   required=True, placeholder="e.g. Netflix", cls=INPUT)),
+            _field("Amount (€) *", Input(name="amount", type="number", step="0.01",
+                   min="0", value=s.get("amount", ""), required=True, cls=INPUT)),
+            cls="grid gap-4 sm:grid-cols-2",
         ),
-        Grid(
-            Label("Start Date *", Input(name="start_date", type="date",
-                  value=s.get("start_date", today_val), required=True)),
-            Label("End Date", Input(name="end_date", type="date",
-                  value=s.get("end_date") or "")),
+        Div(
+            _field("Start Date *", Input(name="start_date", type="date",
+                   value=s.get("start_date", today_val), required=True, cls=INPUT)),
+            _field("End Date", Input(name="end_date", type="date",
+                   value=s.get("end_date") or "", cls=INPUT)),
+            cls="grid gap-4 sm:grid-cols-2",
         ),
-        Label("Frequency", Select(
-            *[Option(freq_option_label(u), value=u, selected=(freq == u))
-              for u in FREQUENCIES],
-            name="frequency", id="frequency-select",
+        _field("Frequency", Select(
+            *[Option(freq_option_label(u), value=u, selected=(freq == u)) for u in FREQUENCIES],
+            name="frequency", id="frequency-select", cls=SELECT,
             onchange="document.getElementById('custom-fields').style.display"
                      " = this.value==='custom' ? 'block' : 'none'",
         )),
         Div(
-            Grid(
-                Label("Repeat every", Input(name="interval", type="number", min="1",
-                      value=interval)),
-                Label("Unit", Select(
-                    *[Option(u.capitalize(), value=u, selected=(base_unit == u))
-                      for u in BASE_UNITS],
-                    name="base_unit",
-                )),
+            Div(
+                _field("Repeat every", Input(name="interval", type="number", min="1",
+                       value=interval, cls=INPUT)),
+                _field("Unit", Select(
+                    *[Option(u.capitalize(), value=u, selected=(base_unit == u)) for u in BASE_UNITS],
+                    name="base_unit", cls=SELECT)),
+                cls="grid gap-4 sm:grid-cols-2",
             ),
-            Small("Used only for the Custom frequency — e.g. every 6 months.",
-                  style="color:var(--pico-muted-color)"),
-            id="custom-fields",
-            style=f"display:{'block' if is_custom else 'none'}",
+            P("Used only for the Custom frequency — e.g. every 6 months.",
+              cls="text-sm text-muted-foreground mt-1.5"),
+            id="custom-fields", style=f"display:{'block' if is_custom else 'none'}",
         ),
-        Label("Category",
-              Input(name="category", value=s.get("category") or "",
-                    placeholder="e.g. Entertainment", autocomplete="off",
-                    **{"list": "category-options"})),
+        _field("Category", Input(name="category", value=s.get("category") or "",
+               placeholder="e.g. Entertainment", autocomplete="off", cls=INPUT,
+               **{"list": "category-options"})),
         Datalist(*[Option(value=c) for c in categories], id="category-options"),
-        Label("Notes", Textarea(s.get("notes") or "", name="notes", rows=3,
-              placeholder="Optional notes…")),
+        _field("Notes", Textarea(s.get("notes") or "", name="notes", rows=3,
+               placeholder="Optional notes…", cls=TEXTAREA)),
         Label(
             Input(type="checkbox", name="is_active", value="1",
-                  checked=(s.get("is_active", 1) in (1, True, "1"))),
-            " Active subscription",
+                  checked=(s.get("is_active", 1) in (1, True, "1")),
+                  cls="h-4 w-4 rounded border-input", style="accent-color:hsl(var(--primary))"),
+            "Active subscription",
+            cls="flex items-center gap-2 text-sm font-medium",
         ),
-        Button(btn_label, type="submit"),
-        method="post", action=action_url,
+        Button(btn_label, type="submit", cls=btn()),
+        method="post", action=action_url, cls="grid gap-4 max-w-2xl",
     )

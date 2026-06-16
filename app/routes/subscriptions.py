@@ -22,6 +22,7 @@ from app.components import (
     page_title, nav_bar, section_card, collapsible_card, alert, badge, status_badge,
     fmt_eur, category_label, subscription_form,
 )
+from app.styles import PAGE_HEADER, TABLE, INPUT, TEXTAREA, LINK, MUTED_SM, btn
 
 ar = APIRouter()
 
@@ -46,13 +47,13 @@ def get(req, session):
     if (r := require(ctx, "subscriptions.create")): return r
     if not writable_team(ctx):
         return page_title("New Subscription"), nav_bar(ctx, "manage"), Main(
-            Div(H2("Add Subscription"), A("← Manage", href="/manage"), cls="page-header"),
+            Div(H2("Add Subscription"), A("← Manage", href="/manage", cls=LINK), cls=PAGE_HEADER),
             alert("Switch to a specific team (not “All teams”) before adding a "
                   "subscription.", "warning"),
         )
     db = get_db()
     return page_title("New Subscription"), nav_bar(ctx, "manage"), Main(
-        Div(H2("Add Subscription"), A("← Manage", href="/manage"), cls="page-header"),
+        Div(H2("Add Subscription"), A("← Manage", href="/manage", cls=LINK), cls=PAGE_HEADER),
         subscription_form("/manage/new", btn_label="Create Subscription",
                           categories=get_categories(db, ctx)),
     )
@@ -108,8 +109,8 @@ def get(req, session, sub_id: int):
         return RedirectResponse("/manage", status_code=303)
     return page_title(f"Edit {sub['name']}"), nav_bar(ctx, "manage"), Main(
         Div(H2(f"Edit: {sub['name']}"),
-            A("← Back", href=f"/subscriptions/{sub_id}/detail"),
-            cls="page-header"),
+            A("← Back", href=f"/subscriptions/{sub_id}/detail", cls=LINK),
+            cls=PAGE_HEADER),
         alert("Editing amount here updates the base record only. "
               "Use 💰 Price Change to record a dated price change.", "warning"),
         subscription_form(f"/subscriptions/{sub_id}/edit", sub=sub,
@@ -162,20 +163,24 @@ def get(req, session, sub_id: int):
     current_price = get_active_price(db, sub_id, sub["amount"])
     return page_title(f"Price Change – {sub['name']}"), nav_bar(ctx, "manage"), Main(
         Div(H2(f"Price Change: {sub['name']}"),
-            A("← Back", href=f"/subscriptions/{sub_id}/detail"),
-            cls="page-header"),
-        P("Current active price: ", Strong(fmt_eur(current_price))),
+            A("← Back", href=f"/subscriptions/{sub_id}/detail", cls=LINK),
+            cls=PAGE_HEADER),
+        P("Current active price: ", Strong(fmt_eur(current_price)), cls="text-sm text-muted-foreground"),
         Form(
             Label("New Amount (€) *",
-                  Input(name="new_amount", type="number", step="0.01",
-                        min="0", required=True, placeholder="e.g. 12.99")),
+                  Input(name="new_amount", type="number", step="0.01", min="0",
+                        required=True, placeholder="e.g. 12.99", cls=INPUT),
+                  cls="grid gap-1.5 text-sm font-medium"),
             Label("Valid From *",
-                  Input(name="valid_from", type="date",
-                        value=timeutil.today_iso(), required=True)),
-            Label("Notes", Textarea("", name="notes", rows=2,
-                  placeholder="Optional reason for price change…")),
-            Button("Save Price Change", type="submit"),
+                  Input(name="valid_from", type="date", value=timeutil.today_iso(),
+                        required=True, cls=INPUT),
+                  cls="grid gap-1.5 text-sm font-medium"),
+            Label("Notes", Textarea("", name="notes", rows=2, cls=TEXTAREA,
+                  placeholder="Optional reason for price change…"),
+                  cls="grid gap-1.5 text-sm font-medium"),
+            Button("Save Price Change", type="submit", cls=btn()),
             method="post", action=f"/subscriptions/{sub_id}/price-change",
+            cls="grid gap-4 max-w-md",
         ),
     )
 
@@ -261,42 +266,46 @@ def get(req, session, sub_id: int):
     actions = []
     if can_edit:
         actions += [
-            A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit",
-              role="button", cls="secondary"),
+            A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit", role="button", cls=btn("outline")),
             A("💰 Price Change", href=f"/subscriptions/{sub_id}/price-change",
-              role="button", cls="secondary"),
+              role="button", cls=btn("outline")),
         ]
     if can_delete:
         actions.append(Button("🗑️ Delete",
                        hx_post=f"/subscriptions/{sub_id}/delete",
                        hx_confirm=f"Delete '{sub['name']}'? (soft-delete)",
-                       hx_target="body", hx_push_url="true", cls="btn-danger"))
+                       hx_target="body", hx_push_url="true", cls=btn("destructive")))
+
+    def kv(label, value):
+        return Div(Div(label, cls="text-xs text-muted-foreground mb-0.5"), Div(value))
 
     info = section_card(
         H3(sub["name"]),
-        Grid(
-            Div(P(Small("Amount")),     P(Strong(fmt_eur(active_price)))),
-            Div(P(Small("Frequency")),  P(freq_lbl)),
-            Div(P(Small("Start Date")), P(sub["start_date"] or "—")),
-            Div(P(Small("End Date")),   P(sub["end_date"] or "—")),
-            Div(P(Small("Status")),     P(status_badge(sub["is_active"]))),
-            Div(P(Small("Category")),   P(badge(category_label(sub.get("category")), "info"))),
-            Div(P(Small("Currency")),   P(sub["currency"] or "EUR")),
+        Div(
+            kv("Amount", Strong(fmt_eur(active_price))),
+            kv("Frequency", freq_lbl),
+            kv("Start Date", sub["start_date"] or "—"),
+            kv("End Date", sub["end_date"] or "—"),
+            kv("Status", status_badge(sub["is_active"])),
+            kv("Category", badge(category_label(sub.get("category")), "info")),
+            kv("Currency", sub["currency"] or "EUR"),
+            cls="grid grid-cols-2 sm:grid-cols-3 gap-4 my-4",
         ),
-        P(Small("Notes"), Br(), sub["notes"] or "—"),
-        Div(*actions, cls="detail-actions") if actions else "",
+        Div(Div("Notes", cls="text-xs text-muted-foreground mb-0.5"), Div(sub["notes"] or "—")),
+        Div(*actions, cls="flex gap-2 flex-wrap mt-4") if actions else "",
     )
 
     costs = section_card(
-        heading="Cost Breakdown (active price)",
-        *[Table(
+        Table(
             Thead(Tr(*[Th(p.capitalize())
                        for p in ["daily", "weekly", "monthly", "quarterly", "yearly"]])),
             Tbody(Tr(*[Td(fmt_eur(get_period_cost(
                               active_price, sub["frequency"], sub["interval"] or 1,
                               sub.get("base_unit"), p)), cls="nowrap")
                        for p in ["daily", "weekly", "monthly", "quarterly", "yearly"]])),
-        )],
+            cls=TABLE,
+        ),
+        heading="Cost Breakdown (active price)",
     )
 
     price_rows = [
@@ -306,12 +315,11 @@ def get(req, session, sub_id: int):
             Td(h.get("username") or "—"),
             Td(h["created_at"][:16], cls="nowrap"),
             Td(Form(
-                Button("🗑️ Delete", cls="secondary",
-                       style="padding:.2rem .5rem; font-size:.78rem; margin:0",
+                Button("🗑️ Delete", cls=btn("outline", "sm"),
                        hx_post=f"/subscriptions/{sub_id}/price-history/{h['id']}/delete",
                        hx_confirm=f"Delete price entry {fmt_eur(h['amount'])} from {h['valid_from']}?",
                        hx_target="body", hx_push_url="true"),
-                method="post",
+                method="post", cls="m-0",
             ) if can_edit else "", cls="nowrap"),
         )
         for h in history
@@ -320,8 +328,8 @@ def get(req, session, sub_id: int):
         heading="Price History",
         *([Table(
             Thead(Tr(Th("Amount"), Th("Valid From"), Th("Added By"), Th("Added At"), Th(""))),
-            Tbody(*price_rows),
-        )] if price_rows else [P("No price history yet.")]),
+            Tbody(*price_rows), cls=TABLE,
+        )] if price_rows else [P("No price history yet.", cls=MUTED_SM)]),
     )
 
     upcoming = []
@@ -337,9 +345,9 @@ def get(req, session, sub_id: int):
             )
             upcoming.append(Div(
                 Span(d.isoformat()),
-                Span(Span(label, style="color:var(--pico-muted-color); font-size:.8rem; margin-right:.5rem"),
+                Span(Span(label, cls="text-muted-foreground text-sm mr-2"),
                      Strong(fmt_eur(price_on_day))),
-                cls="upcoming-item",
+                cls="flex justify-between items-center py-2 border-b last:border-0",
             ))
             d = next_payment_date(sub["start_date"], sub["frequency"],
                                   sub["interval"] or 1, sub.get("base_unit"),
@@ -359,12 +367,12 @@ def get(req, session, sub_id: int):
         f"Audit Log ({len(audit_entries)} entries)",
         Table(
             Thead(Tr(Th("Time"), Th("Action"), Th("Description"))),
-            Tbody(*audit_rows),
-        ) if audit_rows else P("No audit entries."),
+            Tbody(*audit_rows), cls=TABLE,
+        ) if audit_rows else P("No audit entries.", cls=MUTED_SM),
     )
 
     return page_title(sub["name"]), nav_bar(ctx, "manage"), Main(
-        Div(H2(sub["name"]), A("← Manage", href="/manage"), cls="page-header"),
+        Div(H2(sub["name"]), A("← Manage", href="/manage", cls=LINK), cls=PAGE_HEADER),
         info, costs, price_hist, next_payments, audit_section,
     )
 

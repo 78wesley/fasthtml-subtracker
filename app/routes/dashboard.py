@@ -12,6 +12,10 @@ from app.components import (
     page_title, nav_bar, section_card, fmt_eur, category_label,
     bar_chart, hbar_breakdown, MONTH_LABELS,
 )
+from app.styles import (
+    PAGE_HEADER, SELECT_SM, COST_CARD, COST_CARDS, COST_LABEL, COST_AMOUNT,
+    CHARTS_GRID, LINK,
+)
 
 ar = APIRouter()
 
@@ -67,25 +71,22 @@ def get(req, session, year: int = None):
 
     cost_cards = Div(
         *[Div(
-            Div(p.capitalize(), cls="label"),
-            Div(fmt_eur(data["period_costs"][p]), cls="amount"),
-            # Div(f"{year} total ÷ {p}", cls="sub"),
-            cls="cost-card",
+            Div(p.capitalize(), cls=COST_LABEL),
+            Div(fmt_eur(data["period_costs"][p]), cls=COST_AMOUNT),
+            cls=COST_CARD,
         ) for p in ["daily", "weekly", "monthly", "quarterly", "yearly"]],
-        cls="cost-cards",
+        cls=COST_CARDS,
     )
 
     year_bar = Form(
         Div(
             Label("Year", Select(
                 *[Option(str(y), value=str(y), selected=(y == year)) for y in year_range],
-                name="year",
-                onchange="this.form.submit()",
-                style="width:100px",
-            )),
+                name="year", onchange="this.form.submit()", cls=SELECT_SM + " w-auto",
+            ), cls="flex items-center gap-2 text-sm font-medium m-0"),
             Span(f"Total {year}: ", Strong(fmt_eur(data["yearly_total"])),
-                 style="align-self:center; color:var(--pico-muted-color); font-size:.9rem;"),
-            cls="year-bar",
+                 cls="text-sm text-muted-foreground"),
+            cls="flex flex-wrap items-center gap-4 mb-4",
         ),
         method="get", action="/dashboard",
     )
@@ -103,15 +104,15 @@ def get(req, session, year: int = None):
             heading=f"Spend by category ({year})",
             *[hbar_breakdown(data["per_cat"])],
         ),
-        cls="charts-grid",
+        cls=CHARTS_GRID,
     )
 
     scope_label = ("All teams" if (ctx.view_all and ctx.is_super)
                    else (ctx.active_team_name or "No team"))
     return page_title("Dashboard"), nav_bar(ctx, "dashboard"), Main(
-        Div(H2("Dashboard ", Small(f"· {scope_label}", style="color:var(--pico-muted-color)")),
-            A("Manage subscriptions →", href="/manage"),
-            cls="page-header"),
+        Div(H2("Dashboard ", Small(f"· {scope_label}", cls="text-muted-foreground font-normal")),
+            A("Manage subscriptions →", href="/manage", cls=LINK),
+            cls=PAGE_HEADER),
         year_bar,
         cost_cards,
         monthly_chart,

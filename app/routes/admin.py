@@ -15,6 +15,7 @@ from app.rbac import PERMISSIONS, ALL_PERMISSIONS, GLOBAL_ROLES, TEAM_ROLES, ROL
 from app.components import (
     page_title, nav_bar, section_card, alert, badge, fmt_eur, category_label,
 )
+from app.styles import PAGE_HEADER, TABLE, MUTED, btn
 
 ar = APIRouter()
 
@@ -34,22 +35,20 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
     def actions(s):
         btns = []
         if can_restore:
-            btns.append(Button("♻️ Restore", cls="secondary",
-                        style="padding:.25rem .6rem; font-size:.8rem; margin:0",
+            btns.append(Button("♻️ Restore", cls=btn("outline", "sm"),
                         hx_post=f"/admin/deleted/subscription/{s['id']}/restore",
                         hx_confirm=f"Restore '{s['name']}'?",
                         hx_target="body", hx_push_url="true"))
         if can_purge:
-            btns.append(Button("🔥 Delete forever", cls="btn-danger",
-                        style="padding:.25rem .6rem; font-size:.8rem; margin:0",
+            btns.append(Button("🔥 Delete forever", cls=btn("destructive", "sm"),
                         hx_post=f"/admin/deleted/subscription/{s['id']}/purge",
                         hx_confirm=f"PERMANENTLY delete '{s['name']}'? This cannot be undone.",
                         hx_target="body", hx_push_url="true"))
-        return Div(*btns, style="display:flex; gap:.4rem; flex-wrap:wrap")
+        return Div(*btns, cls="flex gap-2 flex-wrap")
 
     rows = [
         Tr(
-            Td(s["name"]),
+            Td(s["name"], cls="font-medium"),
             Td(badge(category_label(s.get("category")), "info"), cls="nowrap"),
             Td(fmt_eur(s["amount"]), cls="nowrap"),
             Td((s["deleted_at"] or "")[:16], cls="nowrap"),
@@ -63,16 +62,17 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
     return page_title("Deleted Records"), nav_bar(ctx, "deleted"), Main(
         Div(H2("Deleted Records ",
                 Small(f"· {'all teams' if (ctx.view_all and ctx.is_super) else (ctx.active_team_name or 'no team')}",
-                      style="color:var(--pico-muted-color)")),
-            cls="page-header"),
+                      cls="text-muted-foreground font-normal")),
+            cls=PAGE_HEADER),
         alert(msg, msg_kind) if msg else "",
         P(Small("Soft-deleted subscriptions remain hidden from normal views. "
-                "Audit history is preserved even after permanent deletion.")),
-        Table(
+                "Audit history is preserved even after permanent deletion.", cls=MUTED)),
+        Div(Table(
             Thead(Tr(Th("Name"), Th("Category"), Th("Amount"),
                      Th("Deleted At"), Th("Deleted By"), Th("Actions"))),
-            Tbody(*rows),
-        ) if rows else P("No deleted records."),
+            Tbody(*rows), cls=TABLE,
+        ), cls="rounded-xl border bg-card overflow-x-auto mt-3") if rows
+        else P("No deleted records.", cls=MUTED),
     )
 
 
@@ -125,34 +125,35 @@ def get(req, session):
 
     def cell(role, perm):
         held = perm in ROLE_PERMISSIONS.get(role, set())
-        return Td("✓" if held else "—", cls="nowrap",
-                  style=f"text-align:center; color:{'var(--pico-primary)' if held else 'var(--pico-muted-color)'}")
+        return Td("✓" if held else "—", cls="nowrap text-center "
+                  + ("text-foreground font-medium" if held else "text-muted-foreground"))
 
     rows, last_cat = [], None
     for perm in ALL_PERMISSIONS:
         if perm_cat[perm] != last_cat:
             last_cat = perm_cat[perm]
             rows.append(Tr(Td(Strong(last_cat), colspan=str(len(_MATRIX_ROLES) + 1),
-                              style="background:var(--pico-muted-border-color)")))
+                              cls="bg-muted/50 text-xs uppercase tracking-wide")))
         rows.append(Tr(
-            Td(perm_label[perm], Br(), Small(perm, style="color:var(--pico-muted-color)")),
+            Td(perm_label[perm], Br(), Small(perm, cls="text-muted-foreground")),
             *[cell(role, perm) for role, _ in _MATRIX_ROLES],
         ))
 
     legend = P(*[Span(badge(label, "role"), " ",
-                      Small(f"({_ROLE_SCOPE[name]})  ", style="color:var(--pico-muted-color)"))
-                 for name, label in _MATRIX_ROLES])
+                      Small(f"({_ROLE_SCOPE[name]})  ", cls="text-muted-foreground mr-2"))
+                 for name, label in _MATRIX_ROLES], cls="mb-4 flex flex-wrap gap-2 items-center")
 
     return page_title("Roles"), nav_bar(ctx, "roles"), Main(
-        Div(H2("Roles & Permissions"), cls="page-header"),
+        Div(H2("Roles & Permissions"), cls=PAGE_HEADER),
         P("Roles are fixed. Assign a ", Strong("global role"), " (User / Super Admin) on the ",
-          A("Users", href="/users"), " page, and a ", Strong("team role"),
-          " (Team Admin / Viewer) on each team's ", A("Members", href="/teams"), " page."),
+          A("Users", href="/users", cls="underline"), " page, and a ", Strong("team role"),
+          " (Team Admin / Viewer) on each team's ", A("Members", href="/teams", cls="underline"),
+          " page.", cls="text-sm text-muted-foreground mb-4"),
         section_card(
             legend,
             Table(
                 Thead(Tr(Th("Permission"), *[Th(label, cls="nowrap") for _, label in _MATRIX_ROLES])),
-                Tbody(*rows),
+                Tbody(*rows), cls=TABLE,
             ),
         ),
     )

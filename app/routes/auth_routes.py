@@ -10,6 +10,7 @@ from app.db import (
 )
 from app.auth import authenticate, create_user
 from app.components import page_title, alert
+from app.styles import INPUT, CARD, FIELD, btn
 
 ar = APIRouter()
 
@@ -23,20 +24,21 @@ def get(session, error: str = ""):
         return RedirectResponse("/login", status_code=303)
     return page_title("Setup"), Titled("Welcome to SubTracker",
         Card(
-            H2("Create your admin account", style="margin-top:0"),
+            H2("Create your admin account", cls="mb-1"),
             alert(error, "error") if error else "",
-            P("No users exist yet. Create the first account to get started."),
+            P("No users exist yet. Create the first account to get started.",
+              cls="text-sm text-muted-foreground mb-4"),
             Form(
                 Label("Username", Input(name="username", required=True,
-                      placeholder="admin", autofocus=True)),
+                      placeholder="admin", autofocus=True, cls=INPUT), cls=FIELD),
                 Label("Password", Input(type="password", name="password",
-                      required=True, placeholder="choose a password")),
+                      required=True, placeholder="choose a password", cls=INPUT), cls=FIELD),
                 Label("Confirm Password", Input(type="password", name="password2",
-                      required=True, placeholder="repeat password")),
-                Button("Create Account", type="submit", style="width:100%"),
-                method="post", action="/setup",
+                      required=True, placeholder="repeat password", cls=INPUT), cls=FIELD),
+                Button("Create Account", type="submit", cls=btn() + " w-full mt-1"),
+                method="post", action="/setup", cls="grid gap-3",
             ),
-            style="max-width:400px; margin:4rem auto;",
+            cls=CARD + " p-6 w-full max-w-sm mx-auto mt-12",
         )
     )
 
@@ -79,17 +81,17 @@ def get(session, error: str = ""):
         return RedirectResponse("/setup", status_code=303)
     return page_title("Login"), Titled("SubTracker",
         Card(
-            H2("Sign In", style="margin-top:0"),
+            H2("Sign In", cls="mb-3"),
             alert(error, "error") if error else "",
             Form(
                 Label("Username", Input(name="username", required=True,
-                      placeholder="username", autofocus=True)),
+                      placeholder="username", autofocus=True, cls=INPUT), cls=FIELD),
                 Label("Password", Input(type="password", name="password",
-                      required=True, placeholder="password")),
-                Button("Sign In", type="submit", style="width:100%"),
-                method="post", action="/login",
+                      required=True, placeholder="password", cls=INPUT), cls=FIELD),
+                Button("Sign In", type="submit", cls=btn() + " w-full mt-1"),
+                method="post", action="/login", cls="grid gap-3",
             ),
-            style="max-width:380px; margin:4rem auto;",
+            cls=CARD + " p-6 w-full max-w-sm mx-auto mt-12",
         )
     )
 

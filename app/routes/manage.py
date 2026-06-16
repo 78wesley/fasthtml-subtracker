@@ -20,6 +20,9 @@ from app.components import (
     page_title, nav_bar, section_card, alert, badge, status_badge, action_menu,
     fmt_eur, category_label,
 )
+from app.styles import PAGE_HEADER, TABLE, CONTROL, INPUT, TEXTAREA, LINK, ALERT, btn
+
+_FF = "grid gap-1.5 text-sm font-medium"  # filter field (label + control)
 
 ar = APIRouter()
 
@@ -42,7 +45,8 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
         price = get_active_price(db, s["id"], s["amount"])
         notes = s["notes"] or ""
         rows.append(Tr(
-            Td(A(s["name"], href=f"/subscriptions/{s['id']}/detail")),
+            Td(A(s["name"], href=f"/subscriptions/{s['id']}/detail",
+                 cls="font-medium hover:underline")),
             Td(badge(category_label(s.get("category")), "info"), cls="nowrap"),
             Td(fmt_eur(price), cls="nowrap"),
             Td(frequency_label(s["frequency"], s["interval"] or 1, s.get("base_unit")),
@@ -50,50 +54,45 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
             Td(s["start_date"] or "—", cls="nowrap"),
             Td(s["end_date"] or "—", cls="nowrap"),
             Td(status_badge(s["is_active"]), cls="nowrap"),
-            Td(Div(notes, cls="cell-clip", title=notes) if notes else "—"),
+            Td(Div(notes, cls="line-clamp-2 max-w-[18rem]", title=notes) if notes else "—"),
             Td(action_menu(s["id"], s["name"]), cls="nowrap"),
         ))
 
     table = (
-        Table(
+        Div(Table(
             Thead(Tr(Th("Name"), Th("Category"), Th("Amount"), Th("Frequency"),
                      Th("Start"), Th("End"), Th("Status"), Th("Notes"), Th("Actions"))),
-            Tbody(*rows),
-        ) if rows else P("No subscriptions found. ", A("Add one →", href="/manage/new"))
+            Tbody(*rows), cls=TABLE,
+        ), cls="rounded-xl border bg-card overflow-x-auto")
+        if rows else P("No subscriptions found. ", A("Add one →", href="/manage/new", cls="underline"))
     )
 
     filter_bar = Form(
         Div(
             Label("Search", Input(name="q", value=q, placeholder="Search name…",
-                                  style="width:200px")),
+                                  cls=CONTROL + " w-[200px]"), cls=_FF),
             Label("Status", Select(
                 Option("All",      value="all",      selected=(status == "all")),
                 Option("Active",   value="active",   selected=(status == "active")),
                 Option("Inactive", value="inactive", selected=(status == "inactive")),
-                name="status", style="width:130px",
-            )),
+                name="status", cls=CONTROL + " w-[130px]",
+            ), cls=_FF),
             Label("Category", Select(
                 Option("All", value="", selected=(not category)),
                 *[Option(c, value=c, selected=(category == c)) for c in all_categories],
-                name="category", style="width:160px",
-            )),
-            Button("Filter", type="submit",
-                   style="margin-bottom:0; padding:.4rem 1rem"),
-            A(Button("＋ Add", type="button", style="margin-bottom:0; padding:.4rem 1rem"),
-              href="/manage/new"),
-            A(Button("⬇ CSV", type="button", cls="secondary",
-                     style="margin-bottom:0; padding:.4rem 1rem"),
-              href="/manage/export"),
-            A(Button("⬆ Import", type="button", cls="secondary",
-                     style="margin-bottom:0; padding:.4rem 1rem"),
-              href="/manage/import"),
-            cls="filters",
+                name="category", cls=CONTROL + " w-[170px]",
+            ), cls=_FF),
+            Button("Filter", type="submit", cls=btn()),
+            A("＋ Add", href="/manage/new", role="button", cls=btn()),
+            A("⬇ CSV", href="/manage/export", role="button", cls=btn("outline")),
+            A("⬆ Import", href="/manage/import", role="button", cls=btn("outline")),
+            cls="flex flex-wrap items-end gap-3 mb-4",
         ),
         method="get", action="/manage",
     )
 
     return page_title("Manage"), nav_bar(ctx, "manage"), Main(
-        Div(H2("Manage Subscriptions"), cls="page-header"),
+        Div(H2("Manage Subscriptions"), cls=PAGE_HEADER),
         filter_bar,
         table,
     )
@@ -267,22 +266,24 @@ def import_page(ctx, *, result=None):
         if errors:
             blocks.append(Div(
                 P(Strong(f"{len(errors)} row{'s' if len(errors) != 1 else ''} skipped:")),
-                Ul(*[Li(e) for e in errors]),
-                cls="alert-warning",
+                Ul(*[Li(e) for e in errors], cls="list-disc pl-5 mt-1 space-y-1"),
+                cls=ALERT["warning"],
             ))
         result_panel = Div(*blocks)
 
     return page_title("Import"), nav_bar(ctx, "manage"), Main(
-        Div(H2("Import Subscriptions"), A("← Manage", href="/manage"), cls="page-header"),
+        Div(H2("Import Subscriptions"), A("← Manage", href="/manage", cls=LINK), cls=PAGE_HEADER),
         result_panel,
         section_card(
             Form(
                 Label("CSV file",
-                      Input(type="file", name="file", accept=".csv,text/csv")),
+                      Input(type="file", name="file", accept=".csv,text/csv",
+                            cls=CONTROL + " w-full file:mr-3 file:rounded file:border-0 file:bg-secondary file:px-2 file:py-1 file:text-sm"),
+                      cls="grid gap-1.5 text-sm font-medium"),
                 Label("…or paste CSV here",
-                      Textarea("", name="csv_text", rows=8,
-                               placeholder=IMPORT_SAMPLE)),
-                Button("Import", type="submit"),
+                      Textarea("", name="csv_text", rows=8, placeholder=IMPORT_SAMPLE, cls=TEXTAREA),
+                      cls="grid gap-1.5 text-sm font-medium mt-4"),
+                Button("Import", type="submit", cls=btn() + " mt-4"),
                 method="post", action="/manage/import",
                 enctype="multipart/form-data",
             ),
@@ -303,11 +304,13 @@ def import_page(ctx, *, result=None):
                 Li(Strong("base_unit"), f" — for custom only: one of {', '.join(BASE_UNITS)}"),
                 Li(Strong("notes"), " — optional free text"),
                 Li(Strong("is_active"), " — 1/yes/true or 0/no/false (default active)"),
+                cls="list-disc pl-5 space-y-1 text-sm text-muted-foreground my-2",
             ),
             P(Small("Column order doesn't matter; unknown columns are ignored. "
-                    "Invalid rows are skipped and reported — valid rows still import.")),
+                    "Invalid rows are skipped and reported — valid rows still import.",
+                    cls="text-muted-foreground")),
             P(Strong("Example:")),
-            Pre(IMPORT_SAMPLE),
+            Pre(IMPORT_SAMPLE, cls="text-xs rounded-md border bg-muted/50 p-3 overflow-x-auto whitespace-pre-wrap"),
             heading="Format",
         ),
     )

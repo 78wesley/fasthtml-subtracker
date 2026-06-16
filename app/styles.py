@@ -1,289 +1,173 @@
 """
-styles.py — shadcn/ui theme for SubTracker (matches ui.shadcn.com).
+styles.py — shadcn/ui for SubTracker, the "native" way.
 
-PicoCSS is disabled (fast_app(pico=False)). Implements shadcn's current default theme:
-the **neutral** base in **OKLCH** with `--radius: 0.625rem`, plus component styling that
-mirrors shadcn's real component specs (button/input h-9, rounded-md; card rounded-xl +
-shadow-sm; rounded-md badges; ring-[3px] focus; Geist font). Opacity uses
-`color-mix(in oklab, …)`, matching Tailwind v4 / shadcn `/NN` color modifiers.
-Targets the native elements FastHTML renders (article=Card, .grid=Grid, button, …).
-Legacy `--pico-*` variables are aliased so existing inline styles keep working.
+There is no bespoke component CSS. The only stylesheet is shadcn's `globals.css`
+(design tokens + the small @layer base), processed by the Tailwind Play CDN. Every
+component is styled with shadcn's real Tailwind utility class strings, exposed here
+as constants/helpers and applied via `cls=` on the markup.
+
+Tokens are HSL (shadcn's Tailwind-v3 default "neutral" palette — same grayscale as
+ui.shadcn.com) so opacity modifiers like `bg-primary/90` work natively on the v3 CDN.
 """
 
-CSS = """
-/* ── shadcn design tokens (neutral, OKLCH) ────────────────────────────────── */
+# shadcn globals.css — tokens + base layer only (no component styling).
+GLOBALS = """
 :root {
-  --radius: 0.625rem;
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-
-  --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.10), 0 1px 2px -1px rgb(0 0 0 / 0.10);
-
-  /* App-specific semantic colors (shadcn ships none) for status badges/alerts. */
-  --success: oklch(0.55 0.14 150);
-  --warning: oklch(0.62 0.16 70);
-  --info: oklch(0.55 0.16 250);
-
-  /* Legacy aliases so existing inline styles resolve to shadcn tokens. */
-  --pico-color: var(--foreground);
-  --pico-muted-color: var(--muted-foreground);
-  --pico-card-background-color: var(--card);
-  --pico-muted-border-color: var(--border);
-  --pico-primary: var(--primary);
-  --pico-primary-hover: color-mix(in oklab, var(--primary) 88%, transparent);
-  --pico-border-radius: var(--radius);
-  --pico-font-size: 1rem;
-
+  --background: 0 0% 100%;
+  --foreground: 0 0% 3.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 3.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 3.9%;
+  --primary: 0 0% 9%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 96.1%;
+  --secondary-foreground: 0 0% 9%;
+  --muted: 0 0% 96.1%;
+  --muted-foreground: 0 0% 45.1%;
+  --accent: 0 0% 96.1%;
+  --accent-foreground: 0 0% 9%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 89.8%;
+  --input: 0 0% 89.8%;
+  --ring: 0 0% 3.9%;
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --info: 217 91% 60%;
+  --radius: 0.5rem;
   color-scheme: light;
 }
-
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.269 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-
-  --success: oklch(0.72 0.15 150);
-  --warning: oklch(0.8 0.15 80);
-  --info: oklch(0.7 0.15 250);
-
+  --background: 0 0% 3.9%;
+  --foreground: 0 0% 98%;
+  --card: 0 0% 3.9%;
+  --card-foreground: 0 0% 98%;
+  --popover: 0 0% 3.9%;
+  --popover-foreground: 0 0% 98%;
+  --primary: 0 0% 98%;
+  --primary-foreground: 0 0% 9%;
+  --secondary: 0 0% 14.9%;
+  --secondary-foreground: 0 0% 98%;
+  --muted: 0 0% 14.9%;
+  --muted-foreground: 0 0% 63.9%;
+  --accent: 0 0% 14.9%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 14.9%;
+  --input: 0 0% 14.9%;
+  --ring: 0 0% 83.1%;
+  --success: 142 71% 45%;
+  --warning: 38 92% 50%;
+  --info: 217 91% 60%;
   color-scheme: dark;
 }
-
-/* ── Base ─────────────────────────────────────────────────────────────────── */
-* { box-sizing: border-box; }
-html { font-size: 100%; -webkit-text-size-adjust: 100%; }
-body {
-  margin: 0 auto; max-width: 1280px; padding: 1.5rem;
-  background: var(--background); color: var(--foreground);
-  font-family: "Geist", "Inter", ui-sans-serif, system-ui, -apple-system,
-               "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", sans-serif;
-  font-size: var(--pico-font-size); line-height: 1.5; letter-spacing: -0.006em;
-  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+@layer base {
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground font-sans antialiased mx-auto max-w-[1280px] px-6 py-6; }
+  h1 { @apply text-2xl font-semibold tracking-tight; }
+  h2 { @apply text-xl font-semibold tracking-tight; }
+  h3 { @apply text-base font-semibold; }
+  a { @apply text-foreground hover:text-primary; }
+  /* Theme-toggle icon swap (only non-component CSS that has no utility equivalent) */
+  .theme-icon-dark { display: none; }
+  .dark .theme-icon-dark { display: inline; }
+  .dark .theme-icon-light { display: none; }
 }
-main, main.container { display: block; width: 100%; }
-h1, h2, h3, h4 { font-weight: 600; line-height: 1.2; letter-spacing: -0.02em; margin: 0 0 .5rem; }
-h1 { font-size: 1.5rem; } h2 { font-size: 1.25rem; } h3 { font-size: 1rem; }
-p { margin: .4rem 0; }
-small { font-size: .8rem; }
-a { color: var(--foreground); text-decoration: none; }
-a:hover { color: var(--primary); }
-hr { border: none; border-top: 1px solid var(--border); margin: 1rem 0; }
-strong { font-weight: 600; }
-code, pre { font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace; }
-::selection { background: color-mix(in oklab, var(--primary) 15%, transparent); }
-
-/* Card = <article>; section-card / cost-card share the look (rounded-xl + shadow-sm) */
-article, .section-card, .cost-card {
-  background: var(--card); color: var(--card-foreground);
-  border: 1px solid var(--border); border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-sm); padding: 1.5rem; margin-bottom: 1.25rem;
-}
-article > header { font-weight: 600; margin: -1.5rem -1.5rem 1.25rem; padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--border); }
-article > footer { margin: 1.25rem -1.5rem -1.5rem; padding: 1rem 1.5rem;
-  border-top: 1px solid var(--border); }
-.section-card h3 { margin-top: 0; }
-
-/* Grid (Pico .grid) → responsive auto-fit columns */
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 1rem; }
-@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-
-/* ── Forms ────────────────────────────────────────────────────────────────── */
-label { display: block; font-size: .875rem; font-weight: 500; margin: .6rem 0 .35rem; }
-input:not([type=checkbox]):not([type=radio]), select, textarea {
-  width: 100%; height: 2.25rem; padding: 0 .75rem; margin: 0;
-  font-size: .875rem; color: var(--foreground); background: transparent;
-  border: 1px solid var(--input); border-radius: var(--radius-md);
-  box-shadow: var(--shadow-xs); transition: box-shadow .15s, border-color .15s; appearance: none;
-}
-.dark input:not([type=checkbox]):not([type=radio]), .dark select, .dark textarea {
-  background: color-mix(in oklab, var(--input) 30%, transparent);
-}
-textarea { height: auto; min-height: 4rem; padding: .5rem .75rem; line-height: 1.5; }
-input:focus, select:focus, textarea:focus {
-  outline: none; border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent);
-}
-input::placeholder, textarea::placeholder { color: var(--muted-foreground); }
-input[type=checkbox] { width: 1rem; height: 1rem; accent-color: var(--primary); vertical-align: middle; }
-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat; background-position: right .55rem center; padding-right: 1.9rem;
-}
-/* Native select popup follows color-scheme; theme the option rows explicitly too. */
-option, optgroup { background-color: var(--popover); color: var(--popover-foreground); }
-
-/* ── Buttons (h-9, rounded-md, shadow-xs; shadcn variants) ─────────────────── */
-button, [role=button], a[role=button], input[type=submit] {
-  display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  padding: .4rem .85rem; font-size: .875rem; font-weight: 500;
-  border-radius: var(--radius-md); border: 1px solid transparent;
-  background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-xs);
-  cursor: pointer; transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s;
-  text-decoration: none; white-space: nowrap; line-height: 1.1;
-}
-button:hover, [role=button]:hover, a[role=button]:hover { background: color-mix(in oklab, var(--primary) 90%, transparent); }
-button:focus-visible, [role=button]:focus-visible {
-  outline: none; border-color: var(--ring);
-  box-shadow: 0 0 0 3px color-mix(in oklab, var(--ring) 50%, transparent); }
-.secondary { background: var(--secondary); color: var(--secondary-foreground); }
-.secondary:hover { background: color-mix(in oklab, var(--secondary) 80%, transparent); }
-.outline, .secondary.outline {
-  background: var(--background); color: var(--foreground); border: 1px solid var(--border);
-}
-.outline:hover, .secondary.outline:hover { background: var(--accent); color: var(--accent-foreground); }
-.contrast { background: var(--foreground); color: var(--background); }
-.btn-danger { background: var(--destructive) !important; color: #fff !important; border-color: transparent !important; }
-.btn-danger:hover { background: color-mix(in oklab, var(--destructive) 90%, transparent) !important; }
-
-/* ── Tables (h-10 muted header, p-2 cells, row hover muted/50) ─────────────── */
-table { width: 100%; border-collapse: collapse; font-size: .875rem; }
-thead th { text-align: left; font-weight: 500; color: var(--muted-foreground);
-  white-space: nowrap; height: 2.5rem; padding: 0 .625rem; border-bottom: 1px solid var(--border); }
-td { padding: .55rem .625rem; border-bottom: 1px solid var(--border);
-  vertical-align: middle; overflow-wrap: anywhere; word-break: break-word; max-width: 22rem; }
-tbody tr:hover { background: color-mix(in oklab, var(--muted) 50%, transparent); }
-tbody tr:last-child td { border-bottom: none; }
-td.nowrap, th.nowrap { white-space: nowrap; overflow-wrap: normal; word-break: normal; max-width: none; }
-.cell-clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-
-/* ── Nav ──────────────────────────────────────────────────────────────────── */
-nav { display: flex; align-items: center; gap: 1.1rem; padding: .55rem 1rem; flex-wrap: wrap;
-  background: var(--card); border: 1px solid var(--border);
-  border-radius: var(--radius-xl); margin-bottom: 1.5rem; box-shadow: var(--shadow-sm); }
-nav .brand { font-weight: 700; font-size: 1.05rem; color: var(--foreground); }
-nav a { font-size: .875rem; color: var(--muted-foreground); }
-nav a:hover { color: var(--foreground); }
-nav a.active { color: var(--foreground); font-weight: 600; }
-nav .spacer { flex: 1; }
-nav .debug-pill { background: color-mix(in oklab, var(--warning) 18%, transparent);
-  border: 1px solid color-mix(in oklab, var(--warning) 40%, transparent);
-  color: var(--warning); font-size: .72rem; padding: .15rem .55rem; border-radius: var(--radius-md); }
-nav .team-switch { margin: 0; }
-nav .team-switch select { margin: 0; height: 2rem; padding: 0 1.8rem 0 .6rem; width: auto; font-size: .8rem; box-shadow: none; }
-.theme-toggle { height: 2rem; width: 2.25rem; padding: 0; font-size: 1rem; line-height: 1; }
-.theme-icon-dark { display: none; }
-.dark .theme-icon-dark { display: inline; }
-.dark .theme-icon-light { display: none; }
-
-/* ── Badges (rounded-md, border, text-xs) ─────────────────────────────────── */
-.badge { display: inline-flex; align-items: center; gap: .25rem; padding: .12rem .5rem;
-  border-radius: var(--radius-md); font-size: .75rem; font-weight: 500;
-  border: 1px solid transparent; line-height: 1.3; white-space: nowrap; }
-.badge-active   { background: color-mix(in oklab, var(--success) 12%, transparent);     color: var(--success);     border-color: color-mix(in oklab, var(--success) 30%, transparent); }
-.badge-inactive { background: color-mix(in oklab, var(--destructive) 10%, transparent); color: var(--destructive); border-color: color-mix(in oklab, var(--destructive) 30%, transparent); }
-.badge-warn     { background: color-mix(in oklab, var(--warning) 14%, transparent);     color: var(--warning);     border-color: color-mix(in oklab, var(--warning) 32%, transparent); }
-.badge-info     { background: color-mix(in oklab, var(--info) 12%, transparent);        color: var(--info);        border-color: color-mix(in oklab, var(--info) 30%, transparent); }
-.badge-role     { background: var(--secondary); color: var(--secondary-foreground); border-color: transparent; }
-
-/* ── Alerts ───────────────────────────────────────────────────────────────── */
-.alert-warning, .alert-error, .alert-success {
-  border: 1px solid; border-radius: var(--radius-lg); padding: .75rem 1rem; margin-bottom: 1rem; font-size: .875rem; }
-.alert-warning { background: color-mix(in oklab, var(--warning) 10%, transparent); border-color: color-mix(in oklab, var(--warning) 35%, transparent); color: var(--foreground); }
-.alert-error   { background: color-mix(in oklab, var(--destructive) 8%, transparent); border-color: color-mix(in oklab, var(--destructive) 35%, transparent); color: var(--destructive); }
-.alert-success { background: color-mix(in oklab, var(--success) 10%, transparent); border-color: color-mix(in oklab, var(--success) 35%, transparent); color: var(--foreground); }
-
-/* ── Cost cards ───────────────────────────────────────────────────────────── */
-.cost-cards { display: grid; grid-template-columns: repeat(5, 1fr); gap: 1rem; margin-bottom: 1.25rem; }
-.cost-card { text-align: center; padding: 1.25rem 1rem; }
-.cost-card .label { font-size: .72rem; color: var(--muted-foreground); text-transform: uppercase; letter-spacing: .05em; margin-bottom: .35rem; }
-.cost-card .amount { font-size: 1.5rem; font-weight: 600; color: var(--foreground); letter-spacing: -0.02em; }
-.cost-card .sub { font-size: .75rem; color: var(--muted-foreground); margin-top: .25rem; }
-@media (max-width: 900px) { .cost-cards { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .cost-cards { grid-template-columns: 1fr; } }
-
-/* ── Charts ───────────────────────────────────────────────────────────────── */
-.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
-@media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
-.bar-chart { width: 100%; height: auto; font-size: 11px; }
-.bar-chart .bar { fill: var(--primary); transition: fill .15s; }
-.bar-chart .bar:hover { fill: color-mix(in oklab, var(--primary) 80%, transparent); }
-.bar-chart .axis-label { fill: var(--muted-foreground); }
-.bar-chart .grid-line { stroke: var(--border); stroke-width: 1; }
-.empty-chart { color: var(--muted-foreground); text-align: center; padding: 2rem 0; }
-.hbar-row { display: grid; grid-template-columns: 12rem 1fr 5.5rem; align-items: center; gap: .6rem; margin-bottom: .5rem; font-size: .85rem; }
-.hbar-name { white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; }
-.hbar-track { background: var(--muted); border-radius: 9999px; height: .5rem; overflow: hidden; }
-.hbar-fill { background: var(--primary); height: 100%; border-radius: 9999px; }
-.hbar-val { text-align: right; color: var(--muted-foreground); }
-
-/* ── Misc layout ──────────────────────────────────────────────────────────── */
-.page-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
-.page-header h2 { margin: 0; }
-.year-bar, .filters { display: flex; gap: 1rem; align-items: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
-.year-bar label, .filters label { margin: 0; font-size: .8rem; }
-.year-bar select, .year-bar input, .filters input, .filters select { margin: 0; }
-.detail-actions { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
-.upcoming-item { display: flex; justify-content: space-between; align-items: center; padding: .5rem 0; border-bottom: 1px solid var(--border); }
-.upcoming-item:last-child { border-bottom: none; }
-details summary { cursor: pointer; font-weight: 600; }
-pre { font-size: .78rem; white-space: pre-wrap; word-break: break-all;
-  background: color-mix(in oklab, var(--muted) 50%, transparent);
-  border: 1px solid var(--border); border-radius: var(--radius-md); padding: .6rem .75rem; }
-
-/* ── Action dropdown menu ─────────────────────────────────────────────────── */
-.action-menu { position: relative; display: inline-block; }
-.action-menu details { margin: 0; }
-.action-menu details summary {
-  font-weight: 500; font-size: .82rem; margin: 0; height: 2rem; padding: 0 .75rem; list-style: none; cursor: pointer;
-  display: inline-flex; align-items: center;
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  background: var(--background); color: var(--foreground); box-shadow: var(--shadow-xs);
-  user-select: none; white-space: nowrap; }
-.action-menu details summary::-webkit-details-marker { display: none; }
-.action-menu details summary:hover { background: var(--accent); }
-.action-menu details[open] summary { border-radius: var(--radius-md) var(--radius-md) 0 0; }
-.action-menu .drop-list {
-  position: absolute; right: 0; z-index: 200; min-width: 170px; margin-top: .25rem;
-  background: var(--popover); color: var(--popover-foreground);
-  border: 1px solid var(--border); border-radius: var(--radius-md);
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.12); overflow: hidden; padding: .25rem; }
-.action-menu details[open] summary { border-radius: var(--radius-md); }
-.action-menu .drop-list a, .action-menu .drop-list button {
-  display: block; width: 100%; box-sizing: border-box; height: auto; justify-content: flex-start;
-  padding: .4rem .55rem; font-size: .84rem; text-decoration: none; color: var(--popover-foreground);
-  background: none; border: none; box-shadow: none; text-align: left; cursor: pointer; margin: 0; border-radius: var(--radius-sm); }
-.action-menu .drop-list a:hover, .action-menu .drop-list button:hover { background: var(--accent); }
-.action-menu .drop-danger { border-top: 1px solid var(--border); margin-top: .25rem; padding-top: .25rem; }
-.action-menu .drop-danger button { color: var(--destructive); }
-.action-menu .drop-danger button:hover { background: color-mix(in oklab, var(--destructive) 12%, transparent); }
 """
+
+# ── shadcn component class strings (the real recipes) ─────────────────────────
+
+_BTN_BASE = ("inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md "
+             "text-sm font-medium transition-colors focus-visible:outline-none "
+             "focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none "
+             "disabled:opacity-50")
+_BTN_VARIANT = {
+    "default":     "bg-primary text-primary-foreground shadow hover:bg-primary/90",
+    "secondary":   "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
+    "outline":     "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground",
+    "destructive": "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90",
+    "ghost":       "hover:bg-accent hover:text-accent-foreground",
+}
+_BTN_SIZE = {
+    "default": "h-9 px-4 py-2",
+    "sm":      "h-8 rounded-md px-3 text-xs",
+    "lg":      "h-10 rounded-md px-8",
+    "icon":    "h-9 w-9",
+}
+
+
+def btn(variant: str = "default", size: str = "default", extra: str = "") -> str:
+    """Compose a shadcn Button class string."""
+    return " ".join(filter(None, [_BTN_BASE, _BTN_VARIANT.get(variant, _BTN_VARIANT["default"]),
+                                   _BTN_SIZE.get(size, _BTN_SIZE["default"]), extra]))
+
+
+INPUT = ("flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm "
+         "shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none "
+         "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50")
+# Native select styled like an Input (keeps the native chevron/popup, themed by color-scheme).
+SELECT = INPUT
+SELECT_SM = ("h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm "
+             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring")
+# Fixed-width form control (no w-full) for inline filter bars.
+CONTROL = ("h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm "
+           "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring")
+TEXTAREA = ("flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 "
+            "text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none "
+            "focus-visible:ring-1 focus-visible:ring-ring")
+LABEL = "text-sm font-medium leading-none"
+
+CARD = "rounded-xl border bg-card text-card-foreground shadow"
+SECTION = CARD + " p-6 mb-5"          # section-card
+COST_CARD = CARD + " p-5 text-center"
+
+_BADGE_BASE = "inline-flex items-center gap-1 rounded-md border px-2.5 py-0.5 text-xs font-semibold"
+_BADGE_VARIANT = {
+    "default":   "border-transparent bg-primary text-primary-foreground",
+    "secondary": "border-transparent bg-secondary text-secondary-foreground",
+    "role":      "border-transparent bg-secondary text-secondary-foreground",
+    "outline":   "text-foreground",
+    "active":    "border-transparent bg-success/15 text-success",
+    "inactive":  "border-transparent bg-destructive/10 text-destructive",
+    "warn":      "border-transparent bg-warning/15 text-warning",
+    "info":      "border-transparent bg-info/15 text-info",
+}
+
+
+def badge_cls(kind: str = "default") -> str:
+    return f"{_BADGE_BASE} {_BADGE_VARIANT.get(kind, _BADGE_VARIANT['default'])}"
+
+
+# One class on <table> styles all child th/td/tr via Tailwind arbitrary variants.
+TABLE = ("w-full caption-bottom text-sm "
+         "[&_thead_tr]:border-b [&_th]:h-10 [&_th]:px-2 [&_th]:text-left [&_th]:align-middle "
+         "[&_th]:font-medium [&_th]:text-muted-foreground "
+         "[&_tbody_tr]:border-b [&_tbody_tr]:transition-colors [&_tbody_tr:hover]:bg-muted/50 "
+         "[&_td]:p-2 [&_td]:align-middle [&_tbody_tr:last-child]:border-0")
+TABLE_WRAP = "relative w-full overflow-x-auto"
+
+# Layout helpers
+PAGE = "mx-auto max-w-[1280px] p-6"
+PAGE_HEADER = "flex items-center justify-between gap-4 flex-wrap mb-5"
+NAV = (CARD + " flex items-center flex-wrap gap-x-5 gap-y-2 px-4 py-2.5 mb-6")
+NAV_LINK = "text-sm text-muted-foreground hover:text-foreground transition-colors"
+NAV_LINK_ACTIVE = "text-sm text-foreground font-medium"
+FILTERS = "flex flex-wrap items-end gap-4 mb-4"
+FIELD = "grid gap-1.5"      # label + control
+ALERT = {
+    "warning": "rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm mb-4",
+    "error":   "rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive mb-4",
+    "success": "rounded-lg border border-success/40 bg-success/10 px-4 py-3 text-sm mb-4",
+}
+MUTED = "text-muted-foreground"
+MUTED_SM = "text-sm text-muted-foreground"
+LINK = "text-sm text-muted-foreground hover:text-foreground transition-colors"
+COST_CARDS = "grid grid-cols-2 md:grid-cols-5 gap-4 mb-5"
+COST_LABEL = "text-xs uppercase tracking-wide text-muted-foreground mb-1.5"
+COST_AMOUNT = "text-2xl font-semibold tracking-tight"
+CHARTS_GRID = "grid md:grid-cols-2 gap-5 mb-5"
+ROW2 = "grid gap-4 sm:grid-cols-2"        # two-column form row
+INLINE_FORM = "flex items-center gap-2 m-0"  # role/membership inline set forms
+CONTENT = "grid gap-5"                     # page main wrapper

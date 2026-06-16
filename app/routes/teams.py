@@ -17,10 +17,12 @@ from app.db import (
 from app.authz import require
 from app.rbac import TEAM_ROLES, TEAM_ROLE_NAMES, can_access_team
 from app.components import page_title, nav_bar, section_card, alert, badge
+from app.styles import PAGE_HEADER, TABLE, CONTROL, INPUT, LINK, MUTED, btn
 
 ar = APIRouter()
 
 _TEAM_ROLE_LABEL = {name: label for name, label, _ in TEAM_ROLES}
+_FIELD = "grid gap-1.5 text-sm font-medium"
 
 
 def can_manage_team(db, ctx, team_id: int) -> bool:
@@ -31,9 +33,9 @@ def can_manage_team(db, ctx, team_id: int) -> bool:
     return m is not None and m["team_role"] == "team_admin"
 
 
-def _team_role_select(name: str, current: str = "viewer"):
+def _team_role_select(name: str, current: str = "viewer", cls: str = CONTROL + " w-[130px]"):
     return Select(*[Option(label, value=rname, selected=(rname == current))
-                    for rname, label, _ in TEAM_ROLES], name=name)
+                    for rname, label, _ in TEAM_ROLES], name=name, cls=cls)
 
 
 # ── Team list ────────────────────────────────────────────────────────────────
@@ -52,43 +54,46 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
         role = t.get("team_role")
         is_active = (not ctx.view_all and tid == ctx.active_team_id)
         actions = [
-            Form(Button("Switch", type="submit", cls="secondary",
-                        style="padding:.25rem .7rem; font-size:.8rem; margin:0"),
+            Form(Button("Switch", type="submit", cls=btn("outline", "sm")),
                  Input(type="hidden", name="team_id", value=str(tid)),
-                 method="post", action="/teams/switch", style="margin:0; display:inline"),
+                 method="post", action="/teams/switch", cls="m-0 inline"),
         ]
         if can_manage_team(db, ctx, tid):
             actions.append(A("Members", href=f"/teams/{tid}/members",
-                             role="button", cls="secondary",
-                             style="padding:.25rem .7rem; font-size:.8rem; margin:0"))
+                             role="button", cls=btn("outline", "sm")))
         rows.append(Tr(
-            Td(t["name"], (badge("active", "active") if is_active else "")),
+            Td(Span(t["name"], cls="font-medium"),
+               (" ", badge("active", "active")) if is_active else ""),
             Td(badge(_TEAM_ROLE_LABEL.get(role, role), "role") if role else "—", cls="nowrap"),
             Td(str(member_count(db, tid)), cls="nowrap"),
-            Td(Div(*actions, style="display:flex; gap:.4rem; flex-wrap:wrap"), cls="nowrap"),
+            Td(Div(*actions, cls="flex gap-2 flex-wrap"), cls="nowrap"),
         ))
 
     create_form = (
         section_card(
             heading="Create Team",
             *[Form(
-                Grid(
-                    Label("Name *", Input(name="name", required=True, placeholder="e.g. Marketing")),
-                    Label("Description", Input(name="description", placeholder="optional")),
+                Div(
+                    Label("Name *", Input(name="name", required=True,
+                          placeholder="e.g. Marketing", cls=INPUT), cls=_FIELD),
+                    Label("Description", Input(name="description", placeholder="optional",
+                          cls=INPUT), cls=_FIELD),
+                    cls="grid gap-4 sm:grid-cols-2",
                 ),
-                Button("Create Team", type="submit"),
+                Button("Create Team", type="submit", cls=btn() + " mt-4"),
                 method="post", action="/teams/new",
             )],
         ) if can_create else ""
     )
 
     return page_title("Teams"), nav_bar(ctx, "teams"), Main(
-        Div(H2("Teams"), cls="page-header"),
+        Div(H2("Teams"), cls=PAGE_HEADER),
         alert(msg, msg_kind) if msg else "",
-        Table(
+        Div(Table(
             Thead(Tr(Th("Team"), Th("Your role"), Th("Members"), Th("Actions"))),
-            Tbody(*rows),
-        ) if rows else P("You are not a member of any team yet."),
+            Tbody(*rows), cls=TABLE,
+        ), cls="rounded-xl border bg-card overflow-x-auto") if rows
+        else P("You are not a member of any team yet.", cls=MUTED),
         create_form,
     )
 
@@ -160,22 +165,20 @@ def get(req, session, team_id: int, msg: str = "", msg_kind: str = "warning"):
 
     member_rows = [
         Tr(
-            Td(m["username"]),
-            Td(badge(m["global_role"].replace("_", " ").title(), "info"), cls="nowrap"),
+            Td(m["username"], cls="font-medium"),
+            Td(badge(m["global_role"].replace("_", " ").title(), "secondary"), cls="nowrap"),
             Td(Form(
                 _team_role_select("team_role", m["team_role"]),
-                Button("Set", type="submit", cls="secondary",
-                       style="padding:.2rem .6rem; font-size:.78rem; margin:0 0 0 .4rem"),
+                Button("Set", type="submit", cls=btn("outline", "sm")),
                 method="post", action=f"/teams/{team_id}/members/{m['id']}/role",
-                style="display:flex; align-items:center; gap:.3rem; margin:0",
+                cls="flex items-center gap-2 m-0",
             )),
             Td(Form(
-                Button("Remove", cls="secondary",
-                       style="padding:.25rem .6rem; font-size:.8rem; margin:0",
+                Button("Remove", cls=btn("outline", "sm"),
                        hx_post=f"/teams/{team_id}/members/{m['id']}/remove",
                        hx_confirm=f"Remove {m['username']} from {team['name']}?",
                        hx_target="body", hx_push_url="true"),
-                method="post",
+                method="post", cls="m-0",
             ), cls="nowrap"),
         )
         for m in members
@@ -186,24 +189,28 @@ def get(req, session, team_id: int, msg: str = "", msg_kind: str = "warning"):
         section_card(
             heading="Add Member",
             *[Form(
-                Grid(
+                Div(
                     Label("User", Select(*[Option(u["username"], value=str(u["id"]))
-                                           for u in addable], name="user_id")),
-                    Label("Team Role", _team_role_select("team_role", "viewer")),
+                                           for u in addable], name="user_id",
+                                          cls=CONTROL + " w-full"), cls=_FIELD),
+                    Label("Team Role", _team_role_select("team_role", "viewer", CONTROL + " w-full"),
+                          cls=_FIELD),
+                    cls="grid gap-4 sm:grid-cols-2",
                 ),
-                Button("Add to Team", type="submit"),
+                Button("Add to Team", type="submit", cls=btn() + " mt-4"),
                 method="post", action=f"/teams/{team_id}/members/add",
             )],
-        ) if addable else P("All users are already members of this team.")
+        ) if addable else P("All users are already members of this team.", cls=MUTED)
     )
 
     return page_title(f"Members – {team['name']}"), nav_bar(ctx, "teams"), Main(
-        Div(H2(f"Members: {team['name']}"), A("← Teams", href="/teams"), cls="page-header"),
+        Div(H2(f"Members: {team['name']}"), A("← Teams", href="/teams", cls=LINK), cls=PAGE_HEADER),
         alert(msg, msg_kind) if msg else "",
-        Table(
+        Div(Table(
             Thead(Tr(Th("User"), Th("Global Role"), Th("Team Role"), Th("Actions"))),
-            Tbody(*member_rows),
-        ) if member_rows else P("No members yet."),
+            Tbody(*member_rows), cls=TABLE,
+        ), cls="rounded-xl border bg-card overflow-x-auto") if member_rows
+        else P("No members yet.", cls=MUTED),
         add_form,
     )
 
