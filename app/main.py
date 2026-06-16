@@ -63,9 +63,7 @@ app, rt = fast_app(
         Script(THEME_JS),
         Link(rel="preconnect", href="https://fonts.googleapis.com"),
         Link(rel="preconnect", href="https://fonts.gstatic.com", crossorigin=""),
-        Link(rel="stylesheet",
-             href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700"
-                  "&family=Geist+Mono:wght@400..600&display=swap"),
+        Link(rel="stylesheet", href="https://fonts.googleapis.com/css2?family=Geist:wght@300..700" "&family=Geist+Mono:wght@400..600&display=swap"),
         Script(src="https://cdn.tailwindcss.com"),
         Script(TAILWIND_CONFIG),
         Style(CSS),

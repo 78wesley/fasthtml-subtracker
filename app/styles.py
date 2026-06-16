@@ -149,15 +149,17 @@ select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23808080' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right .55rem center; padding-right: 1.9rem;
 }
+/* Native select popup follows color-scheme; theme the option rows explicitly too. */
+option, optgroup { background-color: var(--popover); color: var(--popover-foreground); }
 
 /* ── Buttons (h-9, rounded-md, shadow-xs; shadcn variants) ─────────────────── */
 button, [role=button], a[role=button], input[type=submit] {
   display: inline-flex; align-items: center; justify-content: center; gap: .5rem;
-  height: 2.25rem; padding: 0 1rem; font-size: .875rem; font-weight: 500;
+  padding: .4rem .85rem; font-size: .875rem; font-weight: 500;
   border-radius: var(--radius-md); border: 1px solid transparent;
   background: var(--primary); color: var(--primary-foreground); box-shadow: var(--shadow-xs);
   cursor: pointer; transition: background-color .15s, color .15s, border-color .15s, box-shadow .15s;
-  text-decoration: none; white-space: nowrap; line-height: 1;
+  text-decoration: none; white-space: nowrap; line-height: 1.1;
 }
 button:hover, [role=button]:hover, a[role=button]:hover { background: color-mix(in oklab, var(--primary) 90%, transparent); }
 button:focus-visible, [role=button]:focus-visible {
@@ -238,8 +240,8 @@ nav .team-switch select { margin: 0; height: 2rem; padding: 0 1.8rem 0 .6rem; wi
 .bar-chart .axis-label { fill: var(--muted-foreground); }
 .bar-chart .grid-line { stroke: var(--border); stroke-width: 1; }
 .empty-chart { color: var(--muted-foreground); text-align: center; padding: 2rem 0; }
-.hbar-row { display: grid; grid-template-columns: 9rem 1fr 5.5rem; align-items: center; gap: .6rem; margin-bottom: .45rem; font-size: .85rem; }
-.hbar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbar-row { display: grid; grid-template-columns: 12rem 1fr 5.5rem; align-items: center; gap: .6rem; margin-bottom: .5rem; font-size: .85rem; }
+.hbar-name { white-space: normal; overflow-wrap: anywhere; word-break: break-word; line-height: 1.25; }
 .hbar-track { background: var(--muted); border-radius: 9999px; height: .5rem; overflow: hidden; }
 .hbar-fill { background: var(--primary); height: 100%; border-radius: 9999px; }
 .hbar-val { text-align: right; color: var(--muted-foreground); }

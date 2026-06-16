@@ -69,7 +69,7 @@ def get(req, session, year: int = None):
         *[Div(
             Div(p.capitalize(), cls="label"),
             Div(fmt_eur(data["period_costs"][p]), cls="amount"),
-            Div(f"{year} total ÷ {p}", cls="sub"),
+            # Div(f"{year} total ÷ {p}", cls="sub"),
             cls="cost-card",
         ) for p in ["daily", "weekly", "monthly", "quarterly", "yearly"]],
         cls="cost-cards",
