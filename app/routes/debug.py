@@ -35,7 +35,7 @@ def get(req, session, msg: str = ""):
                 method="post", action="/debug/set-date",
             ),
             Form(
-                Button("Reset to Real Clock", cls="secondary outline", type="submit"),
+                Button("Reset to Real Clock", cls="secondary", type="submit"),
                 method="post", action="/debug/clear-date",
             ) if debug else "",
             alert(msg, "success") if msg else "",

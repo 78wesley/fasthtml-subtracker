@@ -262,9 +262,9 @@ def get(req, session, sub_id: int):
     if can_edit:
         actions += [
             A("✏️ Edit", href=f"/subscriptions/{sub_id}/edit",
-              role="button", cls="secondary outline"),
+              role="button", cls="secondary"),
             A("💰 Price Change", href=f"/subscriptions/{sub_id}/price-change",
-              role="button", cls="secondary outline"),
+              role="button", cls="secondary"),
         ]
     if can_delete:
         actions.append(Button("🗑️ Delete",
@@ -306,7 +306,7 @@ def get(req, session, sub_id: int):
             Td(h.get("username") or "—"),
             Td(h["created_at"][:16], cls="nowrap"),
             Td(Form(
-                Button("🗑️ Delete", cls="secondary outline",
+                Button("🗑️ Delete", cls="secondary",
                        style="padding:.2rem .5rem; font-size:.78rem; margin:0",
                        hx_post=f"/subscriptions/{sub_id}/price-history/{h['id']}/delete",
                        hx_confirm=f"Delete price entry {fmt_eur(h['amount'])} from {h['valid_from']}?",

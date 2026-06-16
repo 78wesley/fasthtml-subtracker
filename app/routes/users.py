@@ -42,13 +42,13 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
         if can_manage and not is_self:
             role_cell = Td(Form(
                 _role_select("global_role", u["global_role"]),
-                Button("Set", type="submit", cls="secondary outline",
+                Button("Set", type="submit", cls="secondary",
                        style="padding:.2rem .6rem; font-size:.78rem; margin:0 0 0 .4rem"),
                 method="post", action=f"/users/{u['id']}/role",
                 style="display:flex; align-items:center; gap:.3rem; margin:0",
             ))
             action_cell = Td(Form(
-                Button("🗑️ Delete", cls="secondary outline",
+                Button("🗑️ Delete", cls="secondary",
                        style="padding:.25rem .6rem; font-size:.8rem; margin:0",
                        hx_post=f"/users/{u['id']}/delete",
                        hx_confirm=f"Delete user '{u['username']}'?",

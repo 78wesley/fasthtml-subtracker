@@ -17,7 +17,7 @@ def status_badge(is_active: int) -> Span:
     return badge("Active", "active") if is_active else badge("Inactive", "inactive")
 
 
-def action_btn(label: str, href: str = None, cls: str = "secondary outline",
+def action_btn(label: str, href: str = None, cls: str = "secondary",
                hx_post: str = None, hx_confirm: str = None) -> object:
     """Return a small action button, either a link or an HTMX button."""
     btn = Button(label, cls=cls, style="padding:.25rem .6rem; font-size:.8rem; margin:0;")
@@ -57,9 +57,9 @@ def action_menu(sub_id: int, name: str) -> Div:
 
 def pagination_bar(page: int, total_pages: int, base_url: str) -> Div:
     sep = "&" if "?" in base_url else "?"
-    prev_btn = A(Button("← Prev", cls="secondary outline"),
+    prev_btn = A(Button("← Prev", cls="secondary"),
                  href=f"{base_url}{sep}page={page-1}") if page > 1 else ""
-    next_btn = A(Button("Next →", cls="secondary outline"),
+    next_btn = A(Button("Next →", cls="secondary"),
                  href=f"{base_url}{sep}page={page+1}") if page < total_pages else ""
     return Div(prev_btn,
                Span(f" Page {page} of {total_pages} ", style="padding:0 .75rem"),

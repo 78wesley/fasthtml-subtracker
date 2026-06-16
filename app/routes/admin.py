@@ -34,7 +34,7 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
     def actions(s):
         btns = []
         if can_restore:
-            btns.append(Button("♻️ Restore", cls="secondary outline",
+            btns.append(Button("♻️ Restore", cls="secondary",
                         style="padding:.25rem .6rem; font-size:.8rem; margin:0",
                         hx_post=f"/admin/deleted/subscription/{s['id']}/restore",
                         hx_confirm=f"Restore '{s['name']}'?",

@@ -52,14 +52,14 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
         role = t.get("team_role")
         is_active = (not ctx.view_all and tid == ctx.active_team_id)
         actions = [
-            Form(Button("Switch", type="submit", cls="secondary outline",
+            Form(Button("Switch", type="submit", cls="secondary",
                         style="padding:.25rem .7rem; font-size:.8rem; margin:0"),
                  Input(type="hidden", name="team_id", value=str(tid)),
                  method="post", action="/teams/switch", style="margin:0; display:inline"),
         ]
         if can_manage_team(db, ctx, tid):
             actions.append(A("Members", href=f"/teams/{tid}/members",
-                             role="button", cls="secondary outline",
+                             role="button", cls="secondary",
                              style="padding:.25rem .7rem; font-size:.8rem; margin:0"))
         rows.append(Tr(
             Td(t["name"], (badge("active", "active") if is_active else "")),
@@ -164,13 +164,13 @@ def get(req, session, team_id: int, msg: str = "", msg_kind: str = "warning"):
             Td(badge(m["global_role"].replace("_", " ").title(), "info"), cls="nowrap"),
             Td(Form(
                 _team_role_select("team_role", m["team_role"]),
-                Button("Set", type="submit", cls="secondary outline",
+                Button("Set", type="submit", cls="secondary",
                        style="padding:.2rem .6rem; font-size:.78rem; margin:0 0 0 .4rem"),
                 method="post", action=f"/teams/{team_id}/members/{m['id']}/role",
                 style="display:flex; align-items:center; gap:.3rem; margin:0",
             )),
             Td(Form(
-                Button("Remove", cls="secondary outline",
+                Button("Remove", cls="secondary",
                        style="padding:.25rem .6rem; font-size:.8rem; margin:0",
                        hx_post=f"/teams/{team_id}/members/{m['id']}/remove",
                        hx_confirm=f"Remove {m['username']} from {team['name']}?",

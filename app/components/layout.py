@@ -59,7 +59,7 @@ def theme_toggle() -> Button:
     """Light/dark switch — flips the `.dark` class on <html> (see THEME_JS)."""
     return Button(
         Span("🌙", cls="theme-icon-light"), Span("☀️", cls="theme-icon-dark"),
-        cls="secondary outline theme-toggle", type="button",
+        cls="secondary theme-toggle", type="button",
         onclick="toggleTheme()", title="Toggle light / dark theme",
         **{"aria-label": "Toggle light / dark theme"},
     )
