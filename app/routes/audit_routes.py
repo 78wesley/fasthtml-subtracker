@@ -7,9 +7,9 @@ from fasthtml.common import *
 from app.db import get_db, get_audit_log
 from app.authz import require
 from app.components import (
-    page_title, nav_bar, alert, badge, pagination_bar, json_pretty,
+    page_title, nav_bar, alert, badge, pagination_bar, json_pretty, select_menu,
 )
-from app.styles import PAGE_HEADER, TABLE, CONTROL, MUTED, btn
+from app.styles import PAGE_HEADER, TABLE, MUTED, btn
 
 ar = APIRouter()
 
@@ -17,6 +17,7 @@ ar = APIRouter()
 @ar("/audit")
 def get(req, session, action_filter: str = "", page: int = 1):
     ctx = req.scope["ctx"]
+    if (r := require(ctx, "audit.view")): return r
     db = get_db()
 
     entries, total = get_audit_log(db, ctx,
@@ -30,11 +31,10 @@ def get(req, session, action_filter: str = "", page: int = 1):
 
     filter_bar = Form(
         Div(
-            Label("Action", Select(
-                Option("All Actions", value=""),
-                *[Option(a, value=a, selected=(action_filter == a)) for a in actions],
-                name="action_filter", cls=CONTROL + " w-[180px]",
-            ), cls="grid gap-1.5 text-sm font-medium"),
+            Label("Action", select_menu("action_filter",
+                [("", "All Actions")] + [(a, a) for a in actions],
+                value=action_filter, width="w-[180px]"),
+                cls="grid gap-1.5 text-sm font-medium"),
             Button("Filter", type="submit", cls=btn()),
             cls="flex flex-wrap items-end gap-3 mb-4",
         ),

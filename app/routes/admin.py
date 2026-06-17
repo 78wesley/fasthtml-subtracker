@@ -1,7 +1,6 @@
 """
 admin.py — Admin tooling:
   • /admin/deleted   soft-deleted records: restore or permanently delete
-  • /admin/roles     read-only reference of the three fixed roles and their permissions
 """
 
 from fasthtml.common import *
@@ -11,9 +10,8 @@ from app.db import (
     restore_subscription, purge_subscription, audit,
 )
 from app.authz import require
-from app.rbac import PERMISSIONS, ALL_PERMISSIONS, GLOBAL_ROLES, TEAM_ROLES, ROLE_PERMISSIONS
 from app.components import (
-    page_title, nav_bar, section_card, alert, badge, fmt_eur, category_label,
+    page_title, nav_bar, alert, badge, fmt_eur, category_label,
 )
 from app.styles import PAGE_HEADER, TABLE, MUTED, btn
 
@@ -107,53 +105,3 @@ async def post(req, session, sub_id: int):
     purge_subscription(db, sub_id)
     return RedirectResponse("/admin/deleted?msg=Record+permanently+deleted&msg_kind=success",
                             status_code=303)
-
-
-# ── Roles reference (read-only) ──────────────────────────────────────────────
-
-_MATRIX_ROLES = [(n, l) for n, l, _ in GLOBAL_ROLES] + [(n, l) for n, l, _ in TEAM_ROLES]
-_ROLE_SCOPE = {"super_admin": "Global", "team_admin": "Team", "viewer": "Team"}
-
-
-@ar("/admin/roles")
-def get(req, session):
-    ctx = req.scope["ctx"]
-    if (r := require(ctx, "settings.manage")): return r
-
-    perm_label = {p[0]: p[1] for p in PERMISSIONS}
-    perm_cat = {p[0]: p[2] for p in PERMISSIONS}
-
-    def cell(role, perm):
-        held = perm in ROLE_PERMISSIONS.get(role, set())
-        return Td("✓" if held else "—", cls="nowrap text-center "
-                  + ("text-foreground font-medium" if held else "text-muted-foreground"))
-
-    rows, last_cat = [], None
-    for perm in ALL_PERMISSIONS:
-        if perm_cat[perm] != last_cat:
-            last_cat = perm_cat[perm]
-            rows.append(Tr(Td(Strong(last_cat), colspan=str(len(_MATRIX_ROLES) + 1),
-                              cls="bg-muted/50 text-xs uppercase tracking-wide")))
-        rows.append(Tr(
-            Td(perm_label[perm], Br(), Small(perm, cls="text-muted-foreground")),
-            *[cell(role, perm) for role, _ in _MATRIX_ROLES],
-        ))
-
-    legend = P(*[Span(badge(label, "role"), " ",
-                      Small(f"({_ROLE_SCOPE[name]})  ", cls="text-muted-foreground mr-2"))
-                 for name, label in _MATRIX_ROLES], cls="mb-4 flex flex-wrap gap-2 items-center")
-
-    return page_title("Roles"), nav_bar(ctx, "roles"), Main(
-        Div(H2("Roles & Permissions"), cls=PAGE_HEADER),
-        P("Roles are fixed. Assign a ", Strong("global role"), " (User / Super Admin) on the ",
-          A("Users", href="/users", cls="underline"), " page, and a ", Strong("team role"),
-          " (Team Admin / Viewer) on each team's ", A("Members", href="/teams", cls="underline"),
-          " page.", cls="text-sm text-muted-foreground mb-4"),
-        section_card(
-            legend,
-            Table(
-                Thead(Tr(Th("Permission"), *[Th(label, cls="nowrap") for _, label in _MATRIX_ROLES])),
-                Tbody(*rows), cls=TABLE,
-            ),
-        ),
-    )

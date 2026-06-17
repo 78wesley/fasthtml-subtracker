@@ -363,13 +363,14 @@ def get(req, session, sub_id: int):
            Td(a["description"]))
         for a in audit_entries
     ]
+    # Audit history is hidden from roles without audit access (e.g. viewers).
     audit_section = collapsible_card(
         f"Audit Log ({len(audit_entries)} entries)",
         Table(
             Thead(Tr(Th("Time"), Th("Action"), Th("Description"))),
             Tbody(*audit_rows), cls=TABLE,
         ) if audit_rows else P("No audit entries.", cls=MUTED_SM),
-    )
+    ) if ctx.can("audit.view") else ""
 
     return page_title(sub["name"]), nav_bar(ctx, "manage"), Main(
         Div(H2(sub["name"]), A("← Manage", href="/manage", cls=LINK), cls=PAGE_HEADER),

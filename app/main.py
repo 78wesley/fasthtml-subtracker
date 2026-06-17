@@ -65,6 +65,70 @@ function toggleTheme() {
 }
 """
 
+# Drives the <details>-based shadcn DropdownMenu / Select:
+#  • close on outside-click or Escape (one menu open at a time);
+#  • when open, re-position the menu as position:fixed so it floats above any
+#    clipping ancestor (e.g. a table wrapper with overflow);
+#  • for select_menu, write the picked value + label into the hidden input.
+DROPDOWN_JS = """
+function closeDropdowns(except) {
+  document.querySelectorAll('details[data-dropdown][open]').forEach(function (d) {
+    if (d !== except) d.removeAttribute('open');
+  });
+}
+function positionMenu(d) {
+  var summary = d.querySelector(':scope > summary');
+  var menu = d.querySelector(':scope > [role="menu"]');
+  if (!summary || !menu) return;
+  var r = summary.getBoundingClientRect();
+  menu.style.position = 'fixed';
+  menu.style.margin = '0';
+  menu.style.right = 'auto';
+  if (d.getAttribute('data-align') !== 'right') menu.style.minWidth = r.width + 'px';
+  // Measure, then clamp inside the viewport (clientWidth/Height exclude scrollbars),
+  // so the fixed menu never overflows and spawns a scrollbar — which would fire a
+  // resize → reposition loop and make the scrollbar flicker.
+  var mw = menu.offsetWidth, mh = menu.offsetHeight, gap = 4, pad = 8;
+  var vw = document.documentElement.clientWidth, vh = document.documentElement.clientHeight;
+  var top = r.bottom + gap;
+  if (top + mh > vh - pad) top = (r.top - gap - mh >= pad) ? r.top - gap - mh
+                                                           : Math.max(pad, vh - pad - mh);
+  var left = (d.getAttribute('data-align') === 'right') ? (r.right - mw) : r.left;
+  left = Math.max(pad, Math.min(left, vw - pad - mw));
+  menu.style.top = top + 'px';
+  menu.style.left = left + 'px';
+}
+function repositionOpen() {
+  document.querySelectorAll('details[data-dropdown][open]').forEach(positionMenu);
+}
+document.addEventListener('click', function (e) {
+  var item = e.target.closest('details[data-select] [data-value]');
+  if (item) {
+    var d = item.closest('details[data-select]');
+    var input = d.querySelector('input[type="hidden"]');
+    var label = d.querySelector('[data-select-label]');
+    if (input) { input.value = item.getAttribute('data-value');
+                 input.dispatchEvent(new Event('change', { bubbles: true })); }
+    if (label) label.textContent = item.textContent;
+    d.querySelectorAll('[data-value]').forEach(function (b) {
+      b.classList.remove('bg-accent', 'text-accent-foreground'); });
+    item.classList.add('bg-accent', 'text-accent-foreground');
+    d.removeAttribute('open');
+    return;
+  }
+  closeDropdowns(e.target.closest('details[data-dropdown][open]'));
+});
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closeDropdowns(null);
+});
+document.addEventListener('toggle', function (e) {
+  var d = e.target;
+  if (d && d.matches && d.matches('details[data-dropdown]') && d.open) positionMenu(d);
+}, true);
+window.addEventListener('scroll', repositionOpen, true);
+window.addEventListener('resize', repositionOpen);
+"""
+
 app, rt = fast_app(
     secret_key=SECRET_KEY,
     pico=False,
@@ -78,6 +142,7 @@ app, rt = fast_app(
                   "&family=Geist+Mono:wght@400..600&display=swap"),
         Script(src="https://cdn.tailwindcss.com"),
         Script(TAILWIND_CONFIG),
+        Script(DROPDOWN_JS),
         Style(GLOBALS, type="text/tailwindcss"),
     ),
     before=Beforeware(load_ctx, skip=SKIP),

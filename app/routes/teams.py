@@ -16,8 +16,8 @@ from app.db import (
 )
 from app.authz import require
 from app.rbac import TEAM_ROLES, TEAM_ROLE_NAMES, can_access_team
-from app.components import page_title, nav_bar, section_card, alert, badge
-from app.styles import PAGE_HEADER, TABLE, CONTROL, INPUT, LINK, MUTED, btn
+from app.components import page_title, nav_bar, section_card, alert, badge, select_menu
+from app.styles import PAGE_HEADER, TABLE, INPUT, LINK, MUTED, btn
 
 ar = APIRouter()
 
@@ -33,9 +33,9 @@ def can_manage_team(db, ctx, team_id: int) -> bool:
     return m is not None and m["team_role"] == "team_admin"
 
 
-def _team_role_select(name: str, current: str = "viewer", cls: str = CONTROL + " w-[130px]"):
-    return Select(*[Option(label, value=rname, selected=(rname == current))
-                    for rname, label, _ in TEAM_ROLES], name=name, cls=cls)
+def _team_role_select(name: str, current: str = "viewer", width: str = "w-[130px]"):
+    return select_menu(name, [(rname, label) for rname, label, _ in TEAM_ROLES],
+                       value=current, width=width)
 
 
 # ── Team list ────────────────────────────────────────────────────────────────
@@ -43,7 +43,7 @@ def _team_role_select(name: str, current: str = "viewer", cls: str = CONTROL + "
 @ar("/teams")
 def get(req, session, msg: str = "", msg_kind: str = "warning"):
     ctx = req.scope["ctx"]
-    if (r := require(ctx, "teams.view")): return r
+    if (r := require(ctx, "teams.manage")): return r
     db = get_db()
     can_create = ctx.can("teams.manage")
 
@@ -190,10 +190,10 @@ def get(req, session, team_id: int, msg: str = "", msg_kind: str = "warning"):
             heading="Add Member",
             *[Form(
                 Div(
-                    Label("User", Select(*[Option(u["username"], value=str(u["id"]))
-                                           for u in addable], name="user_id",
-                                          cls=CONTROL + " w-full"), cls=_FIELD),
-                    Label("Team Role", _team_role_select("team_role", "viewer", CONTROL + " w-full"),
+                    Label("User", select_menu("user_id",
+                          [(str(u["id"]), u["username"]) for u in addable], width="w-full"),
+                          cls=_FIELD),
+                    Label("Team Role", _team_role_select("team_role", "viewer", "w-full"),
                           cls=_FIELD),
                     cls="grid gap-4 sm:grid-cols-2",
                 ),

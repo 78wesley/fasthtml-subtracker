@@ -7,14 +7,16 @@ from fasthtml.common import *
 from app import timeutil
 from app.db import get_db, get_all_subscriptions, get_price_history
 from app.authz import require
-from app.cost_utils import year_cost_with_price_history, monthly_costs_for_year
+from app.cost_utils import (
+    year_cost_with_price_history, monthly_costs_for_year, frequency_label,
+)
 from app.components import (
     page_title, nav_bar, section_card, fmt_eur, category_label,
     bar_chart, hbar_breakdown, MONTH_LABELS,
 )
 from app.styles import (
-    PAGE_HEADER, SELECT_SM, COST_CARD, COST_CARDS, COST_LABEL, COST_AMOUNT,
-    CHARTS_GRID, LINK,
+    PAGE_HEADER, COST_CARD, COST_CARDS, COST_LABEL, COST_AMOUNT,
+    CHARTS_GRID, LINK, btn,
 )
 
 ar = APIRouter()
@@ -26,7 +28,7 @@ def _year_analytics(db, ctx, year: int) -> dict:
     active window. Returns period_costs, yearly_total, per_sub, per_cat, months.
     """
     subs = get_all_subscriptions(db, ctx)
-    per_sub, per_cat, months, yearly_total = [], {}, [0.0] * 12, 0.0
+    per_sub, per_cat, per_freq, months, yearly_total = [], {}, {}, [0.0] * 12, 0.0
 
     for s in subs:
         history = get_price_history(db, s["id"])
@@ -36,6 +38,9 @@ def _year_analytics(db, ctx, year: int) -> dict:
         per_sub.append((s["name"], sub_year))
         cat = category_label(s.get("category"))
         per_cat[cat] = round(per_cat.get(cat, 0.0) + sub_year, 2)
+        flabel = frequency_label(s["frequency"] or "monthly",
+                                 s.get("interval") or 1, s.get("base_unit"))
+        per_freq[flabel] = round(per_freq.get(flabel, 0.0) + sub_year, 2)
         yearly_total += sub_year
         for i, m in enumerate(monthly_costs_for_year(s, history, year)):
             months[i] += m
@@ -53,6 +58,7 @@ def _year_analytics(db, ctx, year: int) -> dict:
         "yearly_total": yearly_total,
         "per_sub":      per_sub,
         "per_cat":      list(per_cat.items()),
+        "per_freq":     list(per_freq.items()),
         "months":       [round(m, 2) for m in months],
     }
 
@@ -65,7 +71,6 @@ def get(req, session, year: int = None):
 
     current_year = timeutil.today().year
     year = year or current_year
-    year_range = list(range(current_year - 3, current_year + 3))
 
     data = _year_analytics(db, ctx, year)
 
@@ -78,17 +83,13 @@ def get(req, session, year: int = None):
         cls=COST_CARDS,
     )
 
-    year_bar = Form(
-        Div(
-            Label("Year", Select(
-                *[Option(str(y), value=str(y), selected=(y == year)) for y in year_range],
-                name="year", onchange="this.form.submit()", cls=SELECT_SM + " w-auto",
-            ), cls="flex items-center gap-2 text-sm font-medium m-0"),
-            Span(f"Total {year}: ", Strong(fmt_eur(data["yearly_total"])),
-                 cls="text-sm text-muted-foreground"),
-            cls="flex flex-wrap items-center gap-4 mb-4",
-        ),
-        method="get", action="/dashboard",
+    year_nav = Div(
+        A("← Previous", href=f"/dashboard?year={year - 1}", role="button",
+          cls=btn("outline", "sm")),
+        Span(str(year), cls="text-sm font-semibold tabular-nums px-2"),
+        A("Next →", href=f"/dashboard?year={year + 1}", role="button",
+          cls=btn("outline", "sm")),
+        cls="flex items-center gap-2 mb-4",
     )
 
     monthly_chart = section_card(
@@ -104,6 +105,10 @@ def get(req, session, year: int = None):
             heading=f"Spend by category ({year})",
             *[hbar_breakdown(data["per_cat"])],
         ),
+        section_card(
+            heading=f"Spend by billing frequency ({year})",
+            *[hbar_breakdown(data["per_freq"])],
+        ),
         cls=CHARTS_GRID,
     )
 
@@ -113,7 +118,7 @@ def get(req, session, year: int = None):
         Div(H2("Dashboard ", Small(f"· {scope_label}", cls="text-muted-foreground font-normal")),
             A("Manage subscriptions →", href="/manage", cls=LINK),
             cls=PAGE_HEADER),
-        year_bar,
+        year_nav,
         cost_cards,
         monthly_chart,
         breakdown_charts,

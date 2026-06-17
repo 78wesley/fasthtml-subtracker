@@ -6,26 +6,40 @@ theme toggle, titles, cards, 403 page.
 from fasthtml.common import *
 
 from app import timeutil
-from app.components.widgets import alert
+from app.components.widgets import alert, dropdown_menu, menu_item_cls
 from app.styles import (
-    NAV, NAV_LINK, NAV_LINK_ACTIVE, SELECT_SM, SECTION, PAGE_HEADER, btn, badge_cls,
+    NAV, NAV_LINK, NAV_LINK_ACTIVE, SECTION, PAGE_HEADER, btn, badge_cls,
 )
 
 
 def team_switcher(ctx):
-    """Active-team <select> (auto-submits). Super admins also get an 'All teams' option."""
+    """
+    Active-team picker as a shadcn DropdownMenu (matching the Manage Actions menu).
+    Super admins also get an 'All teams' option. Only rendered when there's an actual
+    choice (>1 option); with a single team the name is shown as plain text instead.
+    """
     if not ctx.teams:
         return Span("No team", cls=badge_cls("warn"))
-    opts = []
+    options = []  # (value, label, is_selected)
     if ctx.is_super:
-        opts.append(Option("🌐 All teams", value="__all__", selected=ctx.view_all))
+        options.append(("__all__", "🌐 All teams", ctx.view_all))
     for t in ctx.teams:
-        opts.append(Option(t["name"], value=str(t["id"]),
-                           selected=(not ctx.view_all and t["id"] == ctx.active_team_id)))
-    return Form(
-        Select(*opts, name="team_id", onchange="this.form.submit()", cls=SELECT_SM + " w-auto"),
-        method="post", action="/teams/switch", cls="m-0",
-    )
+        options.append((str(t["id"]), t["name"],
+                        (not ctx.view_all and t["id"] == ctx.active_team_id)))
+    if len(options) <= 1:
+        return Span(ctx.active_team_name or ctx.teams[0]["name"],
+                    cls="text-sm text-muted-foreground")
+
+    current = next((lbl for _, lbl, sel in options if sel), options[0][1])
+    items = [
+        Form(
+            Button(lbl, type="submit", name="team_id", value=val,
+                   cls=menu_item_cls(active=sel)),
+            method="post", action="/teams/switch", cls="m-0",
+        )
+        for val, lbl, sel in options
+    ]
+    return dropdown_menu(current, *items)
 
 
 def theme_toggle() -> Button:
@@ -52,11 +66,10 @@ def nav_bar(ctx, active: str = "") -> Nav:
         A("💳 SubTracker", href="/dashboard", cls="font-bold text-base mr-1"),
         link("Dashboard", "/dashboard", "dashboard", ctx.can("subscriptions.view")),
         link("Manage", "/manage", "manage", ctx.can("subscriptions.view")),
-        link("Audit Log", "/audit", "audit"),
-        link("Teams", "/teams", "teams", ctx.can("teams.view")),
+        link("Audit Log", "/audit", "audit", ctx.can("audit.view")),
+        link("Teams", "/teams", "teams", ctx.can("teams.manage")),
         link("Deleted", "/admin/deleted", "deleted", ctx.can("records.view_deleted")),
         link("Users", "/users", "users", ctx.can("users.view")),
-        link("Roles", "/admin/roles", "roles", ctx.can("settings.manage")),
         link("Debug", "/debug", "debug", ctx.can("settings.manage")),
         debug_pill,
         Div(cls="flex-1"),

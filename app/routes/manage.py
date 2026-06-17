@@ -18,11 +18,19 @@ from app.authz import require, writable_team
 from app.cost_utils import FREQUENCIES, BASE_UNITS, frequency_label, get_annual_cost
 from app.components import (
     page_title, nav_bar, section_card, alert, badge, status_badge, action_menu,
-    fmt_eur, category_label,
+    select_menu, fmt_eur, category_label,
 )
 from app.styles import PAGE_HEADER, TABLE, CONTROL, INPUT, TEXTAREA, LINK, ALERT, btn
 
 _FF = "grid gap-1.5 text-sm font-medium"  # filter field (label + control)
+
+# lucide arrow-up-right — signals the name links through to the detail page.
+_OPEN_ICON = NotStr(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" '
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+    'stroke-linejoin="round" class="opacity-50 shrink-0"><path d="M7 7h10v10"/>'
+    '<path d="M7 17 17 7"/></svg>'
+)
 
 ar = APIRouter()
 
@@ -35,6 +43,12 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
     if (r := require(ctx, "subscriptions.view")): return r
     db = get_db()
 
+    can_create = ctx.can("subscriptions.create")
+    can_edit = ctx.can("subscriptions.edit")
+    can_delete = ctx.can("subscriptions.delete")
+    can_view_detail = ctx.can("subscriptions.view")
+    show_actions = can_edit or can_delete
+
     all_categories = get_categories(db, ctx)
     subs = get_all_subscriptions(db, ctx,
                                  filter_active=status if status != "all" else None,
@@ -44,9 +58,13 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
     for s in subs:
         price = get_active_price(db, s["id"], s["amount"])
         notes = s["notes"] or ""
+        name_cell = (
+            A(s["name"], _OPEN_ICON, href=f"/subscriptions/{s['id']}/detail",
+              cls="inline-flex items-center gap-1 font-medium hover:underline")
+            if can_view_detail else Span(s["name"], cls="font-medium")
+        )
         rows.append(Tr(
-            Td(A(s["name"], href=f"/subscriptions/{s['id']}/detail",
-                 cls="font-medium hover:underline")),
+            Td(name_cell),
             Td(badge(category_label(s.get("category")), "info"), cls="nowrap"),
             Td(fmt_eur(price), cls="nowrap"),
             Td(frequency_label(s["frequency"], s["interval"] or 1, s.get("base_unit")),
@@ -55,37 +73,42 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
             Td(s["end_date"] or "—", cls="nowrap"),
             Td(status_badge(s["is_active"]), cls="nowrap"),
             Td(Div(notes, cls="line-clamp-2 max-w-[18rem]", title=notes) if notes else "—"),
-            Td(action_menu(s["id"], s["name"]), cls="nowrap"),
+            *([Td(action_menu(s["id"], s["name"], can_edit=can_edit, can_delete=can_delete),
+                  cls="nowrap")] if show_actions else []),
         ))
 
+    empty_state = (
+        P("No subscriptions found. ", A("Add one →", href="/manage/new", cls="underline"))
+        if can_create else P("No subscriptions found.")
+    )
     table = (
         Div(Table(
             Thead(Tr(Th("Name"), Th("Category"), Th("Amount"), Th("Frequency"),
-                     Th("Start"), Th("End"), Th("Status"), Th("Notes"), Th("Actions"))),
+                     Th("Start"), Th("End"), Th("Status"), Th("Notes"),
+                     *([Th("Actions")] if show_actions else []))),
             Tbody(*rows), cls=TABLE,
         ), cls="rounded-xl border bg-card overflow-x-auto")
-        if rows else P("No subscriptions found. ", A("Add one →", href="/manage/new", cls="underline"))
+        if rows else empty_state
     )
+
+    actions = [Button("Filter", type="submit", cls=btn())]
+    if can_create:
+        actions.append(A("＋ Add", href="/manage/new", role="button", cls=btn()))
+    actions.append(A("⬇ CSV", href="/manage/export", role="button", cls=btn("outline")))
+    if can_create:
+        actions.append(A("⬆ Import", href="/manage/import", role="button", cls=btn("outline")))
 
     filter_bar = Form(
         Div(
             Label("Search", Input(name="q", value=q, placeholder="Search name…",
                                   cls=CONTROL + " w-[200px]"), cls=_FF),
-            Label("Status", Select(
-                Option("All",      value="all",      selected=(status == "all")),
-                Option("Active",   value="active",   selected=(status == "active")),
-                Option("Inactive", value="inactive", selected=(status == "inactive")),
-                name="status", cls=CONTROL + " w-[130px]",
-            ), cls=_FF),
-            Label("Category", Select(
-                Option("All", value="", selected=(not category)),
-                *[Option(c, value=c, selected=(category == c)) for c in all_categories],
-                name="category", cls=CONTROL + " w-[170px]",
-            ), cls=_FF),
-            Button("Filter", type="submit", cls=btn()),
-            A("＋ Add", href="/manage/new", role="button", cls=btn()),
-            A("⬇ CSV", href="/manage/export", role="button", cls=btn("outline")),
-            A("⬆ Import", href="/manage/import", role="button", cls=btn("outline")),
+            Label("Status", select_menu("status",
+                [("all", "All"), ("active", "Active"), ("inactive", "Inactive")],
+                value=status, width="w-[130px]"), cls=_FF),
+            Label("Category", select_menu("category",
+                [("", "All")] + [(c, c) for c in all_categories],
+                value=category, width="w-[170px]"), cls=_FF),
+            *actions,
             cls="flex flex-wrap items-end gap-3 mb-4",
         ),
         method="get", action="/manage",

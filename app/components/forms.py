@@ -5,8 +5,9 @@ forms.py — Shared subscription form (new & edit), styled with shadcn utilities
 from fasthtml.common import *
 
 from app import timeutil
+from app.components.widgets import select_menu
 from app.cost_utils import FREQUENCIES, BASE_UNITS, frequency_label
-from app.styles import INPUT, SELECT, TEXTAREA, LABEL, FIELD, btn
+from app.styles import INPUT, TEXTAREA, LABEL, FIELD, btn
 
 
 def _field(label, control):
@@ -42,9 +43,9 @@ def subscription_form(action_url: str, sub: dict = None, btn_label: str = "Save"
                    value=s.get("end_date") or "", cls=INPUT)),
             cls="grid gap-4 sm:grid-cols-2",
         ),
-        _field("Frequency", Select(
-            *[Option(freq_option_label(u), value=u, selected=(freq == u)) for u in FREQUENCIES],
-            name="frequency", id="frequency-select", cls=SELECT,
+        _field("Frequency", select_menu(
+            "frequency", [(u, freq_option_label(u)) for u in FREQUENCIES],
+            value=freq, width="w-full",
             onchange="document.getElementById('custom-fields').style.display"
                      " = this.value==='custom' ? 'block' : 'none'",
         )),
@@ -52,9 +53,9 @@ def subscription_form(action_url: str, sub: dict = None, btn_label: str = "Save"
             Div(
                 _field("Repeat every", Input(name="interval", type="number", min="1",
                        value=interval, cls=INPUT)),
-                _field("Unit", Select(
-                    *[Option(u.capitalize(), value=u, selected=(base_unit == u)) for u in BASE_UNITS],
-                    name="base_unit", cls=SELECT)),
+                _field("Unit", select_menu(
+                    "base_unit", [(u, u.capitalize()) for u in BASE_UNITS],
+                    value=base_unit, width="w-full")),
                 cls="grid gap-4 sm:grid-cols-2",
             ),
             P("Used only for the Custom frequency — e.g. every 6 months.",

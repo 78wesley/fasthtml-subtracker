@@ -75,6 +75,14 @@ GLOBALS = """
   .dark .theme-icon-dark { display: inline; }
   .dark .theme-icon-light { display: none; }
 }
+
+/* shadcn DropdownMenu (built on <details>): open animation + trigger chevron flip. */
+details[data-dropdown][open] > summary svg { transform: rotate(180deg); }
+details[data-dropdown] > [role="menu"] { animation: dropdown-in 0.12s ease-out; }
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
 """
 
 # ── shadcn component class strings (the real recipes) ─────────────────────────
@@ -107,10 +115,6 @@ def btn(variant: str = "default", size: str = "default", extra: str = "") -> str
 INPUT = ("flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm "
          "shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none "
          "focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50")
-# Native select styled like an Input (keeps the native chevron/popup, themed by color-scheme).
-SELECT = INPUT
-SELECT_SM = ("h-8 rounded-md border border-input bg-transparent px-2 text-sm shadow-sm "
-             "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring")
 # Fixed-width form control (no w-full) for inline filter bars.
 CONTROL = ("h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm "
            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring")

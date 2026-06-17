@@ -14,8 +14,8 @@ from app.db import (
 )
 from app.authz import require
 from app.rbac import GLOBAL_ROLE_NAMES, global_role_rank
-from app.components import page_title, nav_bar, alert, badge
-from app.styles import PAGE_HEADER, TABLE, INPUT, CONTROL, MUTED, btn
+from app.components import page_title, nav_bar, alert, badge, select_menu
+from app.styles import PAGE_HEADER, TABLE, INPUT, MUTED, btn
 
 ar = APIRouter()
 
@@ -25,10 +25,8 @@ _ROLE_LABEL = dict(_GLOBAL_ROLE_CHOICES)
 _FIELD = "grid gap-1.5 text-sm font-medium"
 
 
-def _role_select(name: str, current: str, cls: str = CONTROL + " w-[140px]"):
-    return Select(*[Option(label, value=val, selected=(val == current))
-                    for val, label in _GLOBAL_ROLE_CHOICES],
-                  name=name, cls=cls)
+def _role_select(name: str, current: str, width: str = "w-[140px]"):
+    return select_menu(name, _GLOBAL_ROLE_CHOICES, value=current, width=width)
 
 
 @ar("/users")
@@ -76,7 +74,7 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
                           placeholder="username", cls=INPUT), cls=_FIELD),
                     Label("Password *", Input(name="password", type="password",
                           required=True, placeholder="password", cls=INPUT), cls=_FIELD),
-                    Label("Global Role", _role_select("global_role", "user", CONTROL + " w-full"),
+                    Label("Global Role", _role_select("global_role", "user", "w-full"),
                           cls=_FIELD),
                     cls="grid gap-4 sm:grid-cols-3",
                 ),
