@@ -119,6 +119,23 @@ def is_active_on(periods: list, reference_date: str = None) -> bool:
                for p in periods)
 
 
+def upcoming_price_change(periods: list, reference_date: str = None):
+    """
+    The next scheduled price change relative to the reference date (default today):
+    the earliest future period whose amount differs from the current price.
+    Returns {start_date, amount, current} or None when no change is queued.
+    """
+    ref = reference_date or timeutil.today_iso()
+    cur = current_price(periods, ref)
+    if cur is None:
+        return None
+    for p in sorted((p for p in periods if p["start_date"] > ref),
+                    key=lambda p: p["start_date"]):
+        if p["amount"] != cur:
+            return {"start_date": p["start_date"], "amount": p["amount"], "current": cur}
+    return None
+
+
 def current_price(periods: list, reference_date: str = None):
     """
     Price in effect at the reference date: the covering period's amount, else the

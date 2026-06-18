@@ -10,7 +10,7 @@ from fasthtml.common import *
 from app import timeutil
 from app.db import (
     get_db, get_all_subscriptions, get_categories, get_periods_map,
-    current_price, is_active_on,
+    current_price, is_active_on, upcoming_price_change,
 )
 from app.authz import require
 from app.cost_utils import frequency_label
@@ -29,6 +29,30 @@ _OPEN_ICON = NotStr(
     'stroke-linejoin="round" class="opacity-50 shrink-0"><path d="M7 7h10v10"/>'
     '<path d="M7 17 17 7"/></svg>'
 )
+
+# lucide trending-up / trending-down — marks a queued future price change.
+_TREND_UP = ('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" '
+             'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+             'stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>'
+             '<polyline points="16 7 22 7 22 13"/></svg>')
+_TREND_DOWN = ('<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" '
+               'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+               'stroke-linejoin="round"><polyline points="22 17 13.5 8.5 8.5 13.5 2 7"/>'
+               '<polyline points="16 17 22 17 22 11"/></svg>')
+
+
+def _price_change_icon(change) -> object:
+    """Small trend icon (with tooltip) for an upcoming price change, else ''."""
+    if not change:
+        return ""
+    up = change["amount"] > change["current"]
+    return Span(
+        NotStr(_TREND_UP if up else _TREND_DOWN),
+        cls="shrink-0 " + ("text-warning" if up else "text-success"),
+        title=f"Price {'rises' if up else 'drops'} to {fmt_eur(change['amount'])} "
+              f"on {change['start_date']}",
+    )
+
 
 ar = APIRouter()
 
@@ -59,6 +83,7 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
         periods = periods_map.get(s["id"], [])
         price = current_price(periods, today)
         active = is_active_on(periods, today)
+        price_change = upcoming_price_change(periods, today)
         notes = s["notes"] or ""
         name_cell = (
             A(s["name"], _OPEN_ICON, href=f"/subscriptions/{s['id']}/detail",
@@ -68,7 +93,9 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
         rows.append(Tr(
             Td(name_cell),
             Td(badge(category_label(s.get("category")), "info"), cls="nowrap"),
-            Td(fmt_eur(price) if price is not None else "—", cls="nowrap"),
+            Td(Span(fmt_eur(price) if price is not None else "—",
+                    _price_change_icon(price_change),
+                    cls="inline-flex items-center gap-1.5"), cls="nowrap"),
             Td(frequency_label(s["frequency"], s["interval"] or 1, s.get("base_unit")),
                cls="nowrap"),
             Td(status_badge(active), cls="nowrap"),

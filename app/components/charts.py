@@ -4,7 +4,48 @@ charts.py — Inline SVG / CSS charts, styled with shadcn token utilities
 """
 
 from fasthtml.common import *
-from fasthtml.svg import Svg, Rect, Line, Text
+from fasthtml.svg import Svg, Rect, Line, Text, Polyline, Polygon, Circle
+
+
+def line_chart(labels: list, values: list, *, height: int = 220,
+               fmt=lambda v: f"€{v:,.0f}") -> object:
+    """Responsive line chart (with soft area fill) rendered as inline SVG.
+
+    Suited to cumulative / running-total series where the trend matters more
+    than per-bucket magnitude."""
+    if not values or max(values) <= 0:
+        return P("No data for this period.", cls="text-muted-foreground text-center py-8")
+
+    n = len(values)
+    W, H = 640, height
+    pad_l, pad_r, pad_t, pad_b = 48, 12, 12, 28
+    plot_w = W - pad_l - pad_r
+    plot_h = H - pad_t - pad_b
+    vmax = max(values)
+    base_y = pad_t + plot_h
+
+    xs = [pad_l + (plot_w * i / (n - 1) if n > 1 else plot_w / 2) for i in range(n)]
+    ys = [pad_t + plot_h * (1 - (v / vmax if vmax else 0)) for v in values]
+
+    elems = []
+    for i in range(5):
+        frac = i / 4
+        y = pad_t + plot_h * (1 - frac)
+        elems.append(Line(x1=pad_l, y1=y, x2=W - pad_r, y2=y, cls="stroke-border"))
+        elems.append(Text(fmt(vmax * frac), x=pad_l - 6, y=y + 3,
+                          text_anchor="end", cls="fill-muted-foreground text-[11px]"))
+
+    pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in zip(xs, ys))
+    elems.append(Polygon(points=f"{xs[0]:.1f},{base_y:.1f} {pts} {xs[-1]:.1f},{base_y:.1f}",
+                         cls="fill-primary/10"))
+    elems.append(Polyline(points=pts, cls="fill-none stroke-primary", stroke_width="2"))
+    for (x, y), (lab, val) in zip(zip(xs, ys), zip(labels, values)):
+        elems.append(Circle(cx=x, cy=y, r=3, cls="fill-primary", title=f"{lab}: {fmt(val)}"))
+        elems.append(Text(lab, x=x, y=H - pad_b + 16, text_anchor="middle",
+                          cls="fill-muted-foreground text-[11px]"))
+
+    return Svg(*elems, viewBox=f"0 0 {W} {H}", cls="w-full h-auto",
+               preserveAspectRatio="xMidYMid meet", role="img")
 
 
 def bar_chart(labels: list, values: list, *, height: int = 220,

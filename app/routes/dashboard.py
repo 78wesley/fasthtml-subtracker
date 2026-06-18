@@ -1,18 +1,26 @@
 """
-dashboard.py — Spend dashboard: cost cards, monthly chart, breakdowns.
+dashboard.py — Spend dashboard: run-rate + summary stats, cost cards, charts.
+
+Two distinct lenses are surfaced:
+  • Historical — what the selected calendar year actually cost, prorating each
+    subscription over the days it was active (period + price aware).
+  • Run-rate  — what is being paid right now: currently-active subscriptions at
+    today's price, annualised. Answers "what's my ongoing commitment".
 """
 
 from fasthtml.common import *
 
 from app import timeutil
-from app.db import get_db, get_all_subscriptions, get_periods_map
+from app.db import (
+    get_db, get_all_subscriptions, get_periods_map, is_active_on, current_price,
+)
 from app.authz import require
 from app.cost_utils import (
-    year_cost, monthly_costs_for_year, frequency_label,
+    year_cost, monthly_costs_for_year, frequency_label, get_annual_cost,
 )
 from app.components import (
-    page_title, nav_bar, section_card, fmt_eur, category_label,
-    bar_chart, hbar_breakdown, MONTH_LABELS,
+    page_title, nav_bar, section_card, badge, fmt_eur, category_label,
+    bar_chart, line_chart, hbar_breakdown, MONTH_LABELS,
 )
 from app.styles import (
     PAGE_HEADER, COST_CARD, COST_CARDS, COST_LABEL, COST_AMOUNT,
@@ -25,14 +33,26 @@ ar = APIRouter()
 def _year_analytics(db, ctx, year: int) -> dict:
     """
     Spend analytics for `year`, honouring price history and each subscription's
-    active window. Returns period_costs, yearly_total, per_sub, per_cat, months.
+    active windows, plus current run-rate and a year-over-year comparison.
     """
     subs = get_all_subscriptions(db, ctx)
     periods_map = get_periods_map(db, [s["id"] for s in subs])
+    today = timeutil.today_iso()
+
     per_sub, per_cat, per_freq, months, yearly_total = [], {}, {}, [0.0] * 12, 0.0
+    run_rate_annual, active_count = 0.0, 0
 
     for s in subs:
         periods = periods_map.get(s["id"], [])
+
+        # Run-rate: only subscriptions active *today*, at today's price.
+        if is_active_on(periods, today):
+            active_count += 1
+            price = current_price(periods, today)
+            if price is not None:
+                run_rate_annual += get_annual_cost(
+                    price, s["frequency"], s.get("interval") or 1, s.get("base_unit"))
+
         sub_year = year_cost(s, periods, year)
         if sub_year <= 0:
             continue
@@ -46,7 +66,17 @@ def _year_analytics(db, ctx, year: int) -> dict:
         for i, m in enumerate(monthly_costs_for_year(s, periods, year)):
             months[i] += m
 
+    prev_total = round(
+        sum(year_cost(s, periods_map.get(s["id"], []), year - 1) for s in subs), 2)
+
     yearly_total = round(yearly_total, 2)
+    months = [round(m, 2) for m in months]
+    cumulative, running = [], 0.0
+    for m in months:
+        running += m
+        cumulative.append(round(running, 2))
+    run_rate_annual = round(run_rate_annual, 2)
+
     period_costs = {
         "daily":     round(yearly_total / 365.25, 2),
         "weekly":    round(yearly_total / 52.18,  2),
@@ -55,13 +85,40 @@ def _year_analytics(db, ctx, year: int) -> dict:
         "yearly":    yearly_total,
     }
     return {
-        "period_costs": period_costs,
-        "yearly_total": yearly_total,
-        "per_sub":      per_sub,
-        "per_cat":      list(per_cat.items()),
-        "per_freq":     list(per_freq.items()),
-        "months":       [round(m, 2) for m in months],
+        "period_costs":     period_costs,
+        "yearly_total":     yearly_total,
+        "prev_total":       prev_total,
+        "per_sub":          per_sub,
+        "per_cat":          list(per_cat.items()),
+        "per_freq":         list(per_freq.items()),
+        "months":           months,
+        "cumulative":       cumulative,
+        "run_rate_annual":  run_rate_annual,
+        "run_rate_monthly": round(run_rate_annual / 12, 2),
+        "active_count":     active_count,
+        "total_count":      len(subs),
+        "avg_per_sub":      round(yearly_total / len(per_sub), 2) if per_sub else 0.0,
+        "top_sub":          max(per_sub, key=lambda t: t[1]) if per_sub else None,
     }
+
+
+def _stat(label, value, caption=None):
+    return Div(
+        Div(label, cls=COST_LABEL),
+        Div(value, cls=COST_AMOUNT),
+        Div(caption, cls="text-xs text-muted-foreground mt-1 truncate") if caption else "",
+        cls=COST_CARD,
+    )
+
+
+def _yoy_badge(cur: float, prev: float, prev_year: int):
+    """A coloured delta badge: spending less than last year is 'good' (success)."""
+    if prev <= 0:
+        return badge(f"no {prev_year} data", "info")
+    pct = (cur - prev) / prev * 100
+    arrow = "▲" if pct >= 0 else "▼"
+    kind = "warning" if pct >= 0 else "success"
+    return badge(f"{arrow} {abs(pct):.0f}% vs {prev_year}", kind)
 
 
 @ar("/dashboard")
@@ -75,15 +132,6 @@ def get(req, session, year: int = None):
 
     data = _year_analytics(db, ctx, year)
 
-    cost_cards = Div(
-        *[Div(
-            Div(p.capitalize(), cls=COST_LABEL),
-            Div(fmt_eur(data["period_costs"][p]), cls=COST_AMOUNT),
-            cls=COST_CARD,
-        ) for p in ["daily", "weekly", "monthly", "quarterly", "yearly"]],
-        cls=COST_CARDS,
-    )
-
     year_nav = Div(
         A("← Previous", href=f"/dashboard?year={year - 1}", role="button",
           cls=btn("outline", "sm")),
@@ -93,23 +141,55 @@ def get(req, session, year: int = None):
         cls="flex items-center gap-2 mb-4",
     )
 
-    monthly_chart = section_card(
-        heading=f"Monthly spend in {year}",
-        *[bar_chart(MONTH_LABELS, data["months"])],
+    # Headline: the year's total spend with a year-over-year delta.
+    total_banner = Div(
+        Div(
+            Span(f"Total spend {year}", cls="text-sm text-muted-foreground"),
+            Div(fmt_eur(data["yearly_total"]), cls="text-3xl font-bold tracking-tight"),
+        ),
+        Div(_yoy_badge(data["yearly_total"], data["prev_total"], year - 1),
+            Div(f"{year - 1}: {fmt_eur(data['prev_total'])}",
+                cls="text-xs text-muted-foreground mt-1 text-right")),
+        cls="flex items-end justify-between rounded-xl border bg-card p-5 mb-5",
     )
+
+    top = data["top_sub"]
+    run_rate_cards = Div(
+        _stat("Monthly run-rate", fmt_eur(data["run_rate_monthly"]),
+              "active subs · today's prices"),
+        _stat("Projected annual", fmt_eur(data["run_rate_annual"]),
+              "if nothing changes"),
+        _stat("Active subscriptions", str(data["active_count"]),
+              f"of {data['total_count']} total"),
+        _stat("Avg / subscription", fmt_eur(data["avg_per_sub"]), f"across {year}"),
+        _stat("Most expensive", fmt_eur(top[1]) if top else "—", top[0] if top else None),
+        cls=COST_CARDS,
+    )
+
+    cost_cards = Div(
+        *[Div(
+            Div(p.capitalize(), cls=COST_LABEL),
+            Div(fmt_eur(data["period_costs"][p]), cls=COST_AMOUNT),
+            cls=COST_CARD,
+        ) for p in ["daily", "weekly", "monthly", "quarterly", "yearly"]],
+        cls=COST_CARDS,
+    )
+
+    time_charts = Div(
+        section_card(heading=f"Monthly spend in {year}",
+                     *[bar_chart(MONTH_LABELS, data["months"])]),
+        section_card(heading=f"Cumulative spend in {year}",
+                     *[line_chart(MONTH_LABELS, data["cumulative"])]),
+        cls=CHARTS_GRID,
+    )
+
     breakdown_charts = Div(
-        section_card(
-            heading=f"Spend by subscription ({year})",
-            *[hbar_breakdown(data["per_sub"])],
-        ),
-        section_card(
-            heading=f"Spend by category ({year})",
-            *[hbar_breakdown(data["per_cat"])],
-        ),
-        section_card(
-            heading=f"Spend by billing frequency ({year})",
-            *[hbar_breakdown(data["per_freq"])],
-        ),
+        section_card(heading=f"Spend by subscription ({year})",
+                     *[hbar_breakdown(data["per_sub"])]),
+        section_card(heading=f"Spend by category ({year})",
+                     *[hbar_breakdown(data["per_cat"])]),
+        section_card(heading=f"Spend by billing frequency ({year})",
+                     *[hbar_breakdown(data["per_freq"])]),
         cls=CHARTS_GRID,
     )
 
@@ -120,7 +200,11 @@ def get(req, session, year: int = None):
             A("Manage subscriptions →", href="/manage", cls=LINK),
             cls=PAGE_HEADER),
         year_nav,
+        total_banner,
+        P("Right now", cls="text-sm font-medium text-muted-foreground mb-2"),
+        run_rate_cards,
+        P(f"Average per period ({year})", cls="text-sm font-medium text-muted-foreground mb-2"),
         cost_cards,
-        monthly_chart,
+        time_charts,
         breakdown_charts,
     )

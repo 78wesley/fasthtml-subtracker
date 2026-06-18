@@ -122,11 +122,8 @@ def action_menu(sub_id: int, name: str, *, can_edit: bool = True,
     """
     items = []
     if can_edit:
-        items += [
-            A("Edit", href=f"/subscriptions/{sub_id}/edit", cls=menu_item_cls(), role="menuitem"),
-            A("Price Change", href=f"/subscriptions/{sub_id}/price-change",
-              cls=menu_item_cls(), role="menuitem"),
-        ]
+        items.append(
+            A("Edit", href=f"/subscriptions/{sub_id}/edit", cls=menu_item_cls(), role="menuitem"))
     if can_delete:
         items.append(Button("Delete", cls=menu_item_cls(danger=True), role="menuitem",
                             hx_post=f"/subscriptions/{sub_id}/delete",

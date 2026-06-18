@@ -21,11 +21,11 @@ from app.db import (
 from app.authz import require, writable_team
 from app.cost_utils import (
     FREQUENCIES, BASE_UNITS, frequency_label, get_period_cost,
-    upcoming_payments_for_periods,
+    upcoming_payments_for_periods, monthly_costs_for_year, year_cost, range_cost,
 )
 from app.components import (
     page_title, nav_bar, section_card, collapsible_card, alert, badge, status_badge,
-    fmt_eur, category_label, subscription_form,
+    fmt_eur, category_label, subscription_form, bar_chart, line_chart, MONTH_LABELS,
 )
 from app.styles import PAGE_HEADER, TABLE, INPUT, TEXTAREA, LINK, MUTED_SM, btn
 
@@ -323,6 +323,37 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
         heading="Cost Breakdown (current price)",
     ) if price is not None else ""
 
+    # Spend-over-time charts for the current year + lifetime total.
+    spend_section = ""
+    if periods:
+        year = today.year
+        monthly = monthly_costs_for_year(sub, periods, year)
+        cumulative, run = [], 0.0
+        for m in monthly:
+            run += m
+            cumulative.append(round(run, 2))
+        year_total = year_cost(sub, periods, year)
+        first_start = date.fromisoformat(min(p["start_date"] for p in periods))
+        lifetime = range_cost(sub, periods, first_start, today)
+
+        def figure(label, value):
+            return Div(Div(label, cls="text-xs text-muted-foreground"),
+                       Div(fmt_eur(value), cls="text-2xl font-semibold tracking-tight"))
+
+        spend_section = section_card(
+            Div(figure(f"This year ({year})", year_total),
+                figure("All-time", lifetime),
+                cls="flex gap-10 mb-4"),
+            Div(
+                Div(P("Monthly spend", cls="text-sm font-medium text-muted-foreground mb-2"),
+                    bar_chart(MONTH_LABELS, monthly)),
+                Div(P("Cumulative", cls="text-sm font-medium text-muted-foreground mb-2"),
+                    line_chart(MONTH_LABELS, cumulative)),
+                cls="grid md:grid-cols-2 gap-5",
+            ),
+            heading=f"Spend over time ({year})",
+        )
+
     def period_status(p):
         if p["start_date"] <= today_iso and (p["end_date"] is None or p["end_date"] >= today_iso):
             return badge("Active", "active")
@@ -421,7 +452,7 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
     return page_title(sub["name"]), nav_bar(ctx, "manage"), Main(
         Div(H2(sub["name"]), A("← Manage", href="/manage", cls=LINK), cls=PAGE_HEADER),
         alert(msg, msg_kind) if msg else "",
-        info, costs, periods_section, add_period_form, next_payments, audit_section,
+        info, costs, spend_section, periods_section, add_period_form, next_payments, audit_section,
     )
 
 

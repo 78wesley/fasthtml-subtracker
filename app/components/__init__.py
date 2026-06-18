@@ -12,7 +12,7 @@ from app.components.widgets import (
 from app.components.layout import (
     nav_bar, page_title, section_card, collapsible_card, team_switcher, forbidden_page,
 )
-from app.components.charts import bar_chart, hbar_breakdown
+from app.components.charts import bar_chart, line_chart, hbar_breakdown
 from app.components.forms import subscription_form
 
 __all__ = [
@@ -20,5 +20,5 @@ __all__ = [
     "alert", "badge", "status_badge", "action_btn", "action_menu", "pagination_bar",
     "dropdown_menu", "menu_item_cls", "select_menu",
     "nav_bar", "page_title", "section_card", "collapsible_card",
-    "bar_chart", "hbar_breakdown", "subscription_form",
+    "bar_chart", "line_chart", "hbar_breakdown", "subscription_form",
 ]
