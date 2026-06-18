@@ -139,7 +139,9 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
     )
 
     return page_title("Manage"), nav_bar(ctx, "manage"), Main(
-        Div(H2("Manage Subscriptions"), cls=PAGE_HEADER),
+        Div(H2("Manage Subscriptions"),
+            A("Import / Export", href="/import", role="button", cls=btn("outline")),
+            cls=PAGE_HEADER),
         filter_bar,
         table,
     )
