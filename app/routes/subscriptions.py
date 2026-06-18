@@ -25,9 +25,9 @@ from app.cost_utils import (
 )
 from app.components import (
     page_title, nav_bar, section_card, collapsible_card, alert, badge, status_badge,
-    fmt_eur, category_label, subscription_form, bar_chart, line_chart, MONTH_LABELS,
+    fmt_eur, category_label, subscription_form, bar_chart, MONTH_LABELS,
 )
-from app.styles import PAGE_HEADER, TABLE, INPUT, TEXTAREA, LINK, MUTED_SM, btn
+from app.styles import PAGE_HEADER, TABLE, TABLE_WRAP, INPUT, TEXTAREA, LINK, MUTED_SM, btn
 
 ar = APIRouter()
 
@@ -209,7 +209,7 @@ def get(req, session, sub_id: int, period_id: int):
             Label("End Date",
                   Input(name="end_date", type="date", value=period["end_date"] or "", cls=INPUT),
                   cls="grid gap-1.5 text-sm font-medium"),
-            Button("Save Period", type="submit", cls=btn()),
+            Button("Save Period", type="submit", cls=btn("outline")),
             method="post", action=f"/subscriptions/{sub_id}/periods/{period_id}/edit",
             cls="grid gap-4 max-w-md",
         ),
@@ -312,14 +312,14 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
     )
 
     costs = section_card(
-        Table(
+        Div(Table(
             Thead(Tr(*[Th(p.capitalize()) for p in _PERIODS])),
             Tbody(Tr(*[Td(fmt_eur(get_period_cost(
                               price or 0.0, sub["frequency"], sub["interval"] or 1,
                               sub.get("base_unit"), p)), cls="nowrap")
                        for p in _PERIODS])),
             cls=TABLE,
-        ),
+        ), cls=TABLE_WRAP),
         heading="Cost Breakdown (current price)",
     ) if price is not None else ""
 
@@ -328,10 +328,6 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
     if periods:
         year = today.year
         monthly = monthly_costs_for_year(sub, periods, year)
-        cumulative, run = [], 0.0
-        for m in monthly:
-            run += m
-            cumulative.append(round(run, 2))
         year_total = year_cost(sub, periods, year)
         first_start = date.fromisoformat(min(p["start_date"] for p in periods))
         lifetime = range_cost(sub, periods, first_start, today)
@@ -344,13 +340,8 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
             Div(figure(f"This year ({year})", year_total),
                 figure("All-time", lifetime),
                 cls="flex gap-10 mb-4"),
-            Div(
-                Div(P("Monthly spend", cls="text-sm font-medium text-muted-foreground mb-2"),
-                    bar_chart(MONTH_LABELS, monthly)),
-                Div(P("Cumulative", cls="text-sm font-medium text-muted-foreground mb-2"),
-                    line_chart(MONTH_LABELS, cumulative)),
-                cls="grid md:grid-cols-2 gap-5",
-            ),
+            Div(P("Monthly spend", cls="text-sm font-medium text-muted-foreground mb-2"),
+                bar_chart(MONTH_LABELS, monthly)),
             heading=f"Spend over time ({year})",
         )
 
@@ -396,7 +387,7 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
                     Label("End Date",
                           Input(name="end_date", type="date", cls=INPUT),
                           cls="grid gap-1.5 text-sm font-medium"),
-                    Div(Button("Add Period", type="submit", cls=btn()),
+                    Div(Button("Add Period", type="submit", cls=btn("outline")),
                         cls="flex items-end"),
                     cls="grid gap-3 sm:grid-cols-4 items-start",
                 ),
@@ -408,11 +399,11 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
 
     periods_section = section_card(
         heading="Periods",
-        *([Table(
+        *([Div(Table(
             Thead(Tr(Th("Amount"), Th("Start"), Th("End"), Th("Status"),
                      *([Th("")] if can_edit else []))),
             Tbody(*period_rows), cls=TABLE,
-        )] if period_rows else [P("No periods yet. Add one below.", cls=MUTED_SM)]),
+        ), cls=TABLE_WRAP)] if period_rows else [P("No periods yet. Add one below.", cls=MUTED_SM)]),
     )
 
     upcoming = []
@@ -443,10 +434,10 @@ def get(req, session, sub_id: int, msg: str = "", msg_kind: str = "warning"):
     # Audit history is hidden from roles without audit access (e.g. viewers).
     audit_section = collapsible_card(
         f"Audit Log ({len(audit_entries)} entries)",
-        Table(
+        Div(Table(
             Thead(Tr(Th("Time"), Th("Action"), Th("Description"))),
             Tbody(*audit_rows), cls=TABLE,
-        ) if audit_rows else P("No audit entries.", cls=MUTED_SM),
+        ), cls=TABLE_WRAP) if audit_rows else P("No audit entries.", cls=MUTED_SM),
     ) if ctx.can("audit.view") else ""
 
     return page_title(sub["name"]), nav_bar(ctx, "manage"), Main(

@@ -118,9 +118,9 @@ def get(req, session, q: str = "", status: str = "all", category: str = ""):
         if rows else empty_state
     )
 
-    actions = [Button("Filter", type="submit", cls=btn())]
+    actions = [Button("Filter", type="submit", cls=btn("outline"))]
     if can_create:
-        actions.append(A("＋ Add", href="/manage/new", role="button", cls=btn()))
+        actions.append(A("＋ Add", href="/manage/new", role="button", cls=btn("outline")))
 
     filter_bar = Form(
         Div(

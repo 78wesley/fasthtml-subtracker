@@ -77,6 +77,6 @@ def subscription_form(action_url: str, sub: dict = None, btn_label: str = "Save"
         Datalist(*[Option(value=c) for c in categories], id="category-options"),
         _field("Notes", Textarea(s.get("notes") or "", name="notes", rows=3,
                placeholder="Optional notes…", cls=TEXTAREA)),
-        Button(btn_label, type="submit", cls=btn()),
+        Button(btn_label, type="submit", cls=btn("outline")),
         method="post", action=action_url, cls="grid gap-4 max-w-2xl",
     )

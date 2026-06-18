@@ -263,7 +263,7 @@ def _page(ctx, result=None):
           "template.", cls=MUTED_SM),
         Form(
             Input(type="file", name="file", accept=".csv,.json", required=True, cls=_FILE_INPUT),
-            Button("Import", type="submit", cls=btn()),
+            Button("Import", type="submit", cls=btn("outline")),
             method="post", action="/import", enctype="multipart/form-data",
             cls="grid gap-3 max-w-md mt-3",
         ),

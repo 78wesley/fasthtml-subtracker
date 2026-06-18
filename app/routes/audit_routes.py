@@ -35,7 +35,7 @@ def get(req, session, action_filter: str = "", page: int = 1):
                 [("", "All Actions")] + [(a, a) for a in actions],
                 value=action_filter, width="w-[180px]"),
                 cls="grid gap-1.5 text-sm font-medium"),
-            Button("Filter", type="submit", cls=btn()),
+            Button("Filter", type="submit", cls=btn("outline")),
             cls="flex flex-wrap items-end gap-3 mb-4",
         ),
         method="get", action="/audit",

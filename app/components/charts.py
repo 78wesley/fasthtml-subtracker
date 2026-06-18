@@ -101,6 +101,7 @@ def hbar_breakdown(items: list, *, fmt=lambda v: f"€{v:,.2f}") -> object:
             Div(Div(cls="bg-primary h-full rounded-full", style=f"width:{pct:.1f}%"),
                 cls="bg-muted rounded-full h-2 overflow-hidden"),
             Span(fmt(val), cls="text-right text-muted-foreground"),
-            cls="grid grid-cols-[11rem_1fr_5.5rem] items-center gap-2 mb-2 text-sm",
+            cls="grid grid-cols-[6.5rem_1fr_4.5rem] sm:grid-cols-[11rem_1fr_5.5rem] "
+                "items-center gap-2 mb-2 text-sm",
         ))
     return Div(*rows)

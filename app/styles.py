@@ -65,7 +65,7 @@ GLOBALS = """
 }
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-background text-foreground font-sans antialiased mx-auto max-w-[1280px] px-6 py-6; }
+  body { @apply bg-background text-foreground font-sans antialiased mx-auto max-w-[1280px] px-4 py-5 sm:px-6 sm:py-6; }
   h1 { @apply text-2xl font-semibold tracking-tight; }
   h2 { @apply text-xl font-semibold tracking-tight; }
   h3 { @apply text-base font-semibold; }
@@ -155,7 +155,7 @@ TABLE_WRAP = "relative w-full overflow-x-auto"
 # Layout helpers
 PAGE = "mx-auto max-w-[1280px] p-6"
 PAGE_HEADER = "flex items-center justify-between gap-4 flex-wrap mb-5"
-NAV = (CARD + " flex items-center flex-wrap gap-x-5 gap-y-2 px-4 py-2.5 mb-6")
+NAV = (CARD + " flex items-center flex-wrap gap-x-4 gap-y-2 px-3 py-2.5 mb-5 sm:gap-x-5 sm:px-4 sm:mb-6")
 NAV_LINK = "text-sm text-muted-foreground hover:text-foreground transition-colors"
 NAV_LINK_ACTIVE = "text-sm text-foreground font-medium"
 FILTERS = "flex flex-wrap items-end gap-4 mb-4"

@@ -20,7 +20,7 @@ from app.cost_utils import (
 )
 from app.components import (
     page_title, nav_bar, section_card, badge, fmt_eur, category_label,
-    bar_chart, line_chart, hbar_breakdown, MONTH_LABELS,
+    bar_chart, hbar_breakdown, MONTH_LABELS,
 )
 from app.styles import (
     PAGE_HEADER, COST_CARD, COST_CARDS, COST_LABEL, COST_AMOUNT,
@@ -71,10 +71,6 @@ def _year_analytics(db, ctx, year: int) -> dict:
 
     yearly_total = round(yearly_total, 2)
     months = [round(m, 2) for m in months]
-    cumulative, running = [], 0.0
-    for m in months:
-        running += m
-        cumulative.append(round(running, 2))
     run_rate_annual = round(run_rate_annual, 2)
 
     period_costs = {
@@ -92,7 +88,6 @@ def _year_analytics(db, ctx, year: int) -> dict:
         "per_cat":          list(per_cat.items()),
         "per_freq":         list(per_freq.items()),
         "months":           months,
-        "cumulative":       cumulative,
         "run_rate_annual":  run_rate_annual,
         "run_rate_monthly": round(run_rate_annual / 12, 2),
         "active_count":     active_count,
@@ -175,13 +170,8 @@ def get(req, session, year: int = None):
         cls=COST_CARDS,
     )
 
-    time_charts = Div(
-        section_card(heading=f"Monthly spend in {year}",
-                     *[bar_chart(MONTH_LABELS, data["months"])]),
-        section_card(heading=f"Cumulative spend in {year}",
-                     *[line_chart(MONTH_LABELS, data["cumulative"])]),
-        cls=CHARTS_GRID,
-    )
+    monthly_chart = section_card(heading=f"Monthly spend in {year}",
+                                 *[bar_chart(MONTH_LABELS, data["months"])])
 
     breakdown_charts = Div(
         section_card(heading=f"Spend by subscription ({year})",
@@ -205,6 +195,6 @@ def get(req, session, year: int = None):
         run_rate_cards,
         P(f"Average per period ({year})", cls="text-sm font-medium text-muted-foreground mb-2"),
         cost_cards,
-        time_charts,
+        monthly_chart,
         breakdown_charts,
     )

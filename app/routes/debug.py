@@ -34,7 +34,7 @@ def get(req, session, msg: str = ""):
                       Input(name="debug_date", type="date",
                             value=debug or timeutil.today_iso(), cls=INPUT),
                       cls="grid gap-1.5 text-sm font-medium"),
-                Button("Set Date", type="submit", cls=btn()),
+                Button("Set Date", type="submit", cls=btn("outline")),
                 method="post", action="/debug/set-date", cls="grid gap-3 max-w-xs",
             ),
             Form(

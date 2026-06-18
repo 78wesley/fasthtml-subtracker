@@ -78,7 +78,7 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
                           cls=_FIELD),
                     cls="grid gap-4 sm:grid-cols-3",
                 ),
-                Button("Create User", type="submit", cls=btn() + " mt-4"),
+                Button("Create User", type="submit", cls=btn("outline") + " mt-4"),
                 method="post", action="/users/new",
             ),
         ) if can_manage else ""

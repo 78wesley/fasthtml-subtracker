@@ -80,7 +80,7 @@ def get(req, session, msg: str = "", msg_kind: str = "warning"):
                           cls=INPUT), cls=_FIELD),
                     cls="grid gap-4 sm:grid-cols-2",
                 ),
-                Button("Create Team", type="submit", cls=btn() + " mt-4"),
+                Button("Create Team", type="submit", cls=btn("outline") + " mt-4"),
                 method="post", action="/teams/new",
             )],
         ) if can_create else ""
@@ -197,7 +197,7 @@ def get(req, session, team_id: int, msg: str = "", msg_kind: str = "warning"):
                           cls=_FIELD),
                     cls="grid gap-4 sm:grid-cols-2",
                 ),
-                Button("Add to Team", type="submit", cls=btn() + " mt-4"),
+                Button("Add to Team", type="submit", cls=btn("outline") + " mt-4"),
                 method="post", action=f"/teams/{team_id}/members/add",
             )],
         ) if addable else P("All users are already members of this team.", cls=MUTED)

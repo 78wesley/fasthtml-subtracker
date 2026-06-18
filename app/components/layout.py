@@ -52,32 +52,103 @@ def theme_toggle() -> Button:
     )
 
 
+# lucide menu (hamburger) — the mobile nav trigger.
+_MENU_ICON = NotStr(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" '
+    'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" '
+    'stroke-linejoin="round"><line x1="4" x2="20" y1="6" y2="6"/>'
+    '<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="18" y2="18"/></svg>'
+)
+
+
+def _nav_items(ctx) -> list:
+    """[(label, href, key)] for the sections the current role may reach."""
+    items = [
+        ("Dashboard", "/dashboard", "dashboard", ctx.can("subscriptions.view")),
+        ("Manage", "/manage", "manage", ctx.can("subscriptions.view")),
+        ("Audit Log", "/audit", "audit", ctx.can("audit.view")),
+        ("Teams", "/teams", "teams", ctx.can("teams.manage")),
+        ("Deleted", "/admin/deleted", "deleted", ctx.can("records.view_deleted")),
+        ("Users", "/users", "users", ctx.can("users.view")),
+        ("Debug", "/debug", "debug", ctx.can("settings.manage")),
+    ]
+    return [(lbl, href, key) for lbl, href, key, show in items if show]
+
+
+def _sep():
+    """A shadcn DropdownMenu separator, spanning the menu's inner padding."""
+    return Div(cls="-mx-1 my-1 h-px bg-border", role="separator")
+
+
+def _team_menu_items(ctx) -> list:
+    """Team-switch options as DropdownMenu submit buttons (empty if no real choice)."""
+    if not ctx.teams:
+        return []
+    options = []
+    if ctx.is_super:
+        options.append(("__all__", "🌐 All teams", ctx.view_all))
+    for t in ctx.teams:
+        options.append((str(t["id"]), t["name"],
+                        (not ctx.view_all and t["id"] == ctx.active_team_id)))
+    if len(options) <= 1:
+        return []
+    return [
+        Form(Button(lbl, type="submit", name="team_id", value=val,
+                    cls=menu_item_cls(active=sel)),
+             method="post", action="/teams/switch", cls="m-0")
+        for val, lbl, sel in options
+    ]
+
+
+def _mobile_menu(ctx, active: str, role_label: str):
+    """Hamburger DropdownMenu holding the full nav for small screens."""
+    items = [A(lbl, href=href, role="menuitem",
+               cls=menu_item_cls(active=(key == active)))
+             for lbl, href, key in _nav_items(ctx)]
+
+    team_items = _team_menu_items(ctx)
+    if team_items:
+        items += [_sep(),
+                  Div("Team", cls="px-2 pt-1 pb-0.5 text-xs font-medium text-muted-foreground"),
+                  *team_items]
+
+    items += [
+        _sep(),
+        Div(Div(f"👤 {ctx.username}", cls="text-sm font-medium truncate"),
+            Div(role_label, cls="text-xs text-muted-foreground"),
+            cls="px-2 py-1"),
+        A("Logout", href="/logout", role="menuitem", cls=menu_item_cls()),
+    ]
+    return dropdown_menu(_MENU_ICON, *items)
+
+
 def nav_bar(ctx, active: str = "") -> Nav:
     debug = timeutil.get_debug_date()
     debug_pill = Span(f"🕐 {debug}", cls=badge_cls("warn")) if debug else ""
-
-    def link(label, href, key, show=True):
-        if not show:
-            return ""
-        return A(label, href=href, cls=NAV_LINK_ACTIVE if key == active else NAV_LINK)
-
     role_label = ctx.global_role.replace("_", " ").title()
-    return Nav(
-        A("💳 SubTracker", href="/dashboard", cls="font-bold text-base mr-1"),
-        link("Dashboard", "/dashboard", "dashboard", ctx.can("subscriptions.view")),
-        link("Manage", "/manage", "manage", ctx.can("subscriptions.view")),
-        link("Audit Log", "/audit", "audit", ctx.can("audit.view")),
-        link("Teams", "/teams", "teams", ctx.can("teams.manage")),
-        link("Deleted", "/admin/deleted", "deleted", ctx.can("records.view_deleted")),
-        link("Users", "/users", "users", ctx.can("users.view")),
-        link("Debug", "/debug", "debug", ctx.can("settings.manage")),
-        debug_pill,
-        Div(cls="flex-1"),
+
+    desktop_links = Div(
+        *[A(lbl, href=href, cls=NAV_LINK_ACTIVE if key == active else NAV_LINK)
+          for lbl, href, key in _nav_items(ctx)],
+        cls="hidden md:flex items-center gap-x-5",
+    )
+    desktop_right = Div(
         team_switcher(ctx),
         Span(role_label, cls=badge_cls("secondary")),
         Span(f"👤 {ctx.username}", cls="text-sm text-muted-foreground"),
         theme_toggle(),
         A("Logout", href="/logout", cls=NAV_LINK),
+        cls="hidden md:flex items-center gap-3",
+    )
+
+    return Nav(
+        A("💳 SubTracker", href="/dashboard", cls="font-bold text-base mr-1"),
+        desktop_links,
+        debug_pill,
+        Div(cls="flex-1"),
+        desktop_right,
+        Div(theme_toggle(), _mobile_menu(ctx, active, role_label),
+            cls="flex md:hidden items-center gap-2"),
         cls=NAV,
     )
 
