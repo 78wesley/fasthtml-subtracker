@@ -23,7 +23,7 @@ def get(session, error: str = ""):
     if has_any_users(db):
         return RedirectResponse("/login", status_code=303)
     return page_title("Setup"), Titled("Welcome to SubTracker",
-        Card(
+        Div(
             H2("Create your admin account", cls="mb-1"),
             alert(error, "error") if error else "",
             P("No users exist yet. Create the first account to get started.",
@@ -80,7 +80,7 @@ def get(session, error: str = ""):
     if not has_any_users(db):
         return RedirectResponse("/setup", status_code=303)
     return page_title("Login"), Titled("SubTracker",
-        Card(
+        Div(
             H2("Sign In", cls="mb-3"),
             alert(error, "error") if error else "",
             Form(
