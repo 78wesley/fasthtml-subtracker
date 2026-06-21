@@ -76,7 +76,7 @@ first via the included GitHub Actions workflow.
 **Installing in Home Assistant (any user):**
 
 1. **Settings → Add-ons → Add-on Store → ⋮ → Repositories** → add
-   `https://github.com/78wesley/fasthtml-subtracker`.
+   `https://github.com/78wesley/subtracker`.
 2. **SubTracker** appears in the store. Click **Install**.
 3. On the **Configuration** tab, optionally set `secret_key` (blank = auto-generated
    and persisted to `/data/.secret`) and `log_level`.

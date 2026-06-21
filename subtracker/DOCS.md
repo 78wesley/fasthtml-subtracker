@@ -6,7 +6,7 @@ Multi-tenant subscription cost tracker (FastHTML + SQLite).
 
 1. Add this repository to Home Assistant:
    **Settings → Add-ons → Add-on Store → ⋮ → Repositories** →
-   `https://github.com/78wesley/fasthtml-subtracker`.
+   `https://github.com/78wesley/subtracker`.
 2. The **SubTracker** add-on appears in the store. Click **Install**
    (the Supervisor pulls the prebuilt image — no on-device build).
 3. On the **Configuration** tab, optionally set options (see below), then

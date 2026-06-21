@@ -1,5 +1,5 @@
 [project]
-name = "fasthtml-subscription-viewer"
+name = "subtracker"
 version = "0.1.0"
 description = "SubTracker — a multi-tenant subscription cost tracker built with FastHTML."
 readme = "README.md"
