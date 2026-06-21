@@ -7,7 +7,7 @@
 name: SubTracker
 version: "0.1.0"
 slug: subtracker
-description: Multi-tenant subscription cost tracker (FastHTML + SQLite)
+description: Multi-user subscription tracker (FastHTML + SQLite)
 url: https://github.com/78wesley/fasthtml-subtracker
 image: "ghcr.io/78wesley/subtracker-{arch}"
 arch:

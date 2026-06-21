@@ -30,3 +30,6 @@ storage and is included in Home Assistant snapshots/backups.
 
 The web UI is exposed on host port **5001** by default. Change the host port on
 the **Network** tab if it clashes with another service.
+
+example:
+![image](https://raw.githubusercontent.com/78wesley/subtracker/refs/heads/master/subtracker/img/ui-compare.png)
