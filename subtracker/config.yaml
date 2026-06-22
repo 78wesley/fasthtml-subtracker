@@ -14,6 +14,9 @@ arch:
   - amd64
   - aarch64
 init: false
+startup: application
+# Let the Supervisor restart the add-on if the web server stops responding.
+watchdog: "http://[HOST]:[PORT:5001]/login"
 # Expose the web UI on the host. Change the host port (left) to avoid clashes.
 ports:
   5001/tcp: 5001

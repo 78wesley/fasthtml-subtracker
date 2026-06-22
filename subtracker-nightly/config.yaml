@@ -1,0 +1,31 @@
+# SubTracker (Nightly) — Home Assistant add-on tracking the latest master commit.
+#
+# This is the bleeding-edge channel: every push to master publishes a new image
+# and .github/workflows/nightly.yaml bumps the `version` below automatically — do
+# NOT hand-edit it. Runs side by side with the stable "SubTracker" add-on (its own
+# slug, image, data, and host port), so you can test master without touching prod.
+name: SubTracker (Nightly)
+version: "0.0.0"
+slug: subtracker_nightly
+description: Nightly build of SubTracker — tracks the latest commit (unstable)
+url: https://github.com/78wesley/subtracker
+image: "ghcr.io/78wesley/subtracker-nightly-{arch}"
+arch:
+  - amd64
+  - aarch64
+init: false
+startup: application
+watchdog: "http://[HOST]:[PORT:5001]/login"
+# Defaults to host port 5002 so it can run alongside stable (which uses 5001).
+ports:
+  5001/tcp: 5002
+ports_description:
+  5001/tcp: SubTracker Nightly web interface
+webui: "http://[HOST]:[PORT:5001]"
+options:
+  secret_key: ""
+  log_level: info
+schema:
+  # Leave blank to let the add-on generate & persist a key under /data/.secret.
+  secret_key: "str?"
+  log_level: "list(trace|debug|info|notice|warning|error|critical)?"
